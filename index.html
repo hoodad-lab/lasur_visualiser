@@ -1,0 +1,3901 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>KEIM Concretal-Lasur · Colour Visualiser</title>
+<meta name="description" content="Visualise KEIM Concretal-Lasur colours on concrete, brick and rendered surfaces. Adjust strength, compare before/after, paint specific areas." />
+<style>
+  :root {
+    --bg: #0c0a09;
+    --bg-2: #1c1917;
+    --bg-3: #292524;
+    --line: #44403c;
+    --text: #f5f5f4;
+    --text-2: #a8a29e;
+    --text-3: #78716c;
+    --accent: #f59e0b;
+    --accent-2: #fbbf24;
+    --accent-text: #0c0a09;
+    --keim: #cf2e2e;
+    --keim-2: #8e1a1a;
+    --concrete: #c3bcaf;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+  html, body, #app { height: 100%; }
+  button { font-family: inherit; cursor: pointer; border: 0; }
+  input { font-family: inherit; }
+
+  /* Layout */
+  #app { display: flex; flex-direction: column; }
+  header.topbar {
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .brand-mark {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--keim), var(--keim-2));
+    color: #fff; font-weight: 800; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .brand-title { font-size: 15px; font-weight: 600; line-height: 1.1; letter-spacing: -0.01em; }
+  .brand-sub { font-size: 10px; color: var(--text-2); letter-spacing: 0.04em; }
+  .top-actions { display: flex; gap: 6px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 500;
+    background: var(--bg-3); color: var(--text);
+    border: 1px solid var(--line);
+    transition: background .15s;
+  }
+  .btn:hover { background: #3f3a37; }
+  .btn-primary {
+    background: var(--accent); color: var(--accent-text);
+    border-color: var(--accent); font-weight: 600;
+  }
+  .btn-primary:hover { background: var(--accent-2); }
+  .btn .lbl { white-space: nowrap; }
+  @media (max-width: 480px) {
+    .btn .lbl { display: none; }
+    .brand-sub { display: none; }
+  }
+
+  /* Landing — substrate picker */
+  main.stage { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .landing { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; }
+  .landing-inner { width: 100%; max-width: 880px; }
+  .landing h2 { text-align: center; font-size: clamp(22px, 4vw, 32px); font-weight: 600; letter-spacing: -0.02em; margin: 0 0 24px; }
+  .substrate-grid {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 720px) { .substrate-grid { grid-template-columns: repeat(4, 1fr); } }
+  @media (min-width: 1100px) { .substrate-grid { grid-template-columns: repeat(6, 1fr); } }
+  .tile {
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden; text-align: left;
+    color: var(--text); padding: 0; transition: border-color .15s, transform .15s;
+    display: block; width: 100%;
+  }
+  .tile:hover { border-color: rgba(245,158,11,0.6); }
+  .tile-canvas { width: 100%; aspect-ratio: 3/2; display: block; }
+  .tile-body { padding: 10px 12px; }
+  .tile-label { font-weight: 600; font-size: 14px; }
+  .tile-sub { font-size: 11px; color: var(--text-2); }
+  .tile-upload {
+    border: 2px dashed var(--line);
+    background: var(--bg-2);
+    cursor: pointer;
+  }
+  .tile-upload.drag { border-color: var(--accent); background: rgba(245,158,11,0.06); }
+  .tile-upload-inner {
+    aspect-ratio: 3/2;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--text-3); padding: 12px;
+  }
+  .tile-upload-inner small { font-size: 11px; color: var(--text-2); margin-top: 8px; text-align: center; }
+
+  /* Visualiser stage */
+  .vis-area { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 12px; background: var(--bg-2); overflow: hidden; }
+  .stage-wrap {
+    position: relative;
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    max-width: 100%;
+    max-height: 100%;
+  }
+  .stage-wrap canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
+  .stage-wrap canvas.image { z-index: 1; }
+  .stage-wrap canvas.mask { z-index: 2; transition: opacity 200ms ease; }
+
+  /* Slider divider */
+  .divider {
+    position: absolute; pointer-events: none; z-index: 5;
+    box-shadow: 0 0 14px rgba(0,0,0,0.55), 0 0 4px rgba(0,0,0,0.85);
+  }
+  .divider.h {
+    left: 0; right: 0; height: 2px; transform: translateY(-50%);
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 6%, #fff 14%, #fff 86%, rgba(255,255,255,0.4) 94%, transparent 100%);
+  }
+  .divider.v {
+    top: 0; bottom: 0; width: 2px; transform: translateX(-50%);
+    background: linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.4) 6%, #fff 14%, #fff 86%, rgba(255,255,255,0.4) 94%, transparent 100%);
+  }
+  .handle {
+    position: absolute; z-index: 6;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 0 0 4px rgba(255,255,255,0.18);
+    transform: translate(-50%, -50%);
+    transition: transform .15s;
+    color: #292524;
+  }
+  .handle:hover { transform: translate(-50%, -50%) scale(1.1); }
+  .handle:active { transform: translate(-50%, -50%) scale(0.95); }
+  .handle.h { cursor: row-resize; }
+  .handle.v { cursor: col-resize; }
+  .drag-layer { position: absolute; inset: 0; z-index: 4; }
+  .drag-layer.h { cursor: row-resize; }
+  .drag-layer.v { cursor: col-resize; }
+
+  /* Stage labels */
+  .stage-label {
+    position: absolute; z-index: 5; pointer-events: none;
+    padding: 5px 11px; border-radius: 999px;
+    font-size: 10px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.13em;
+    transition: opacity 200ms;
+  }
+  .stage-label.original {
+    top: 12px; left: 12px;
+    background: rgba(0,0,0,0.7); color: #fff;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .stage-label.treated {
+    background: var(--accent); color: var(--accent-text); font-weight: 700;
+    display: flex; align-items: center; gap: 5px;
+    max-width: calc(100% - 24px);
+    overflow: hidden;
+  }
+  .stage-label.treated .badge-text {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .stage-label.treated.bottom-right { bottom: 12px; right: 12px; }
+  .stage-label.treated.top-right { top: 12px; right: 12px; }
+  .swatch-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  /* On-canvas tool pill selector — appears when in paint mode */
+  .fab-tools {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .fab-tool {
+    display: flex; align-items: center; gap: 7px;
+    padding: 0 14px 0 10px;
+    height: 38px; border-radius: 999px;
+    background: rgba(28,25,23,0.88);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: rgba(255,255,255,0.75);
+    font-size: 12px; font-weight: 600;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 3px 12px rgba(0,0,0,0.45);
+    transition: background .15s, color .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  .fab-tool:hover {
+    background: rgba(50,46,42,0.95);
+    color: #fff;
+    border-color: rgba(255,255,255,0.25);
+  }
+  .fab-tool.active {
+    background: var(--accent);
+    color: var(--accent-text);
+    border-color: var(--accent);
+    box-shadow: 0 3px 12px rgba(245,158,11,0.4);
+  }
+  .fab-tool-done {
+    margin-top: 3px;
+    border-color: rgba(245,158,11,0.4);
+    color: var(--accent);
+  }
+  .fab-tool-done:hover {
+    background: var(--accent);
+    color: var(--accent-text);
+    border-color: var(--accent);
+  }
+  .fab-tool-clear {
+    color: rgba(255,100,100,0.8);
+    border-color: rgba(255,100,100,0.25);
+  }
+  .fab-tool-clear:hover {
+    background: rgba(220,60,60,0.85);
+    color: #fff;
+    border-color: rgba(220,60,60,0.8);
+  }
+
+  .fab-stack {
+    position: absolute; bottom: 12px; left: 12px; z-index: 7;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .fab {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: #fff; color: #292524;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    transition: transform .15s, background .15s, color .15s;
+  }
+  .fab:hover { transform: scale(1.08); }
+  .fab:active { transform: scale(0.94); }
+  .fab.active {
+    background: var(--accent); color: var(--accent-text);
+  }
+  /* Pulse hint shown briefly while sampling */
+  .fab.sampling {
+    background: var(--accent); color: var(--accent-text);
+    animation: fab-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes fab-pulse {
+    0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,0.4), 0 0 0 0 rgba(245,158,11,0.5); }
+    50%      { box-shadow: 0 4px 16px rgba(0,0,0,0.4), 0 0 0 10px rgba(245,158,11,0); }
+  }
+  /* Hint label that fades up when sampling mode is active */
+  .sampling-hint {
+    position: absolute;
+    top: 12px; left: 50%; transform: translateX(-50%);
+    z-index: 7;
+    padding: 8px 14px;
+    background: var(--accent); color: var(--accent-text);
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    border-radius: 999px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    animation: hint-in 220ms ease;
+    pointer-events: none;
+  }
+  @keyframes hint-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+  /* Paint-mode discovery hint — shown once after auto-detection */
+  .paint-hint {
+    position: absolute;
+    top: 12px; left: 50%; transform: translateX(-50%);
+    z-index: 7;
+    padding: 8px 14px;
+    background: rgba(28, 25, 23, 0.94);
+    color: var(--text);
+    font-size: 11px; font-weight: 500;
+    border-radius: 999px;
+    border: 1px solid rgba(245,158,11,0.4);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    animation: hint-in 220ms ease;
+    pointer-events: none;
+    transition: opacity 400ms ease;
+    max-width: calc(100% - 24px);
+    text-align: center;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* Sampling loupe — magnifier circle that follows the cursor */
+  .loupe {
+    position: absolute;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 8;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5),
+                0 0 0 3px rgba(255,255,255,0.95),
+                0 0 0 4px rgba(0,0,0,0.4);
+    overflow: hidden;
+    background: #000;
+    transform: translate(-50%, calc(-100% - 16px));
+    transition: opacity 120ms;
+  }
+  .loupe canvas {
+    display: block;
+    width: 100%; height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  /* Crosshair inside the loupe pointing at the sampled pixel */
+  .loupe::before, .loupe::after {
+    content: '';
+    position: absolute;
+    background: rgba(255,255,255,0.9);
+    box-shadow: 0 0 2px rgba(0,0,0,0.8);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .loupe::before {
+    left: 50%; top: 50%;
+    width: 1px; height: 12px;
+    transform: translate(-50%, -50%);
+  }
+  .loupe::after {
+    left: 50%; top: 50%;
+    width: 12px; height: 1px;
+    transform: translate(-50%, -50%);
+  }
+  /* Centre square highlighting the exact pixel being read */
+  .loupe-pixel {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 9px; height: 9px;
+    border: 1.5px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.6);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 2;
+  }
+  /* Live hex readout under the loupe */
+  .loupe-hex {
+    position: absolute;
+    left: 50%; bottom: -28px;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  /* ─── Bottom bar ──────────────────────────────────────── */
+  .bottom-bar {
+    flex-shrink: 0;
+    background: var(--bg);
+    border-top: 1px solid var(--line);
+    display: flex; flex-direction: column;
+  }
+
+  /* 1. Controls row — strength slider (full) or paint tools (mask) */
+  .controls-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #22201e;
+    min-height: 92px;
+  }
+  .strength-label { font-size: 10px; color: var(--text-3); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em; flex-shrink: 0; }
+  @media (max-width: 480px) { .strength-label { display: none; } }
+  input[type=range] {
+    flex: 1; -webkit-appearance: none; appearance: none;
+    background: transparent; height: 24px; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 4px; border-radius: 4px;
+    background: linear-gradient(90deg, rgba(245,158,11,0.3) 0%, var(--bg-3) 100%);
+  }
+  input[type=range]::-moz-range-track {
+    height: 4px; border-radius: 4px; background: var(--bg-3);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    height: 20px; width: 20px; border-radius: 50%;
+    background: var(--accent);
+    margin-top: -8px; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5), 0 0 0 3px rgba(245,158,11,0.2);
+  }
+  input[type=range]::-moz-range-thumb {
+    height: 20px; width: 20px; border-radius: 50%;
+    background: var(--accent); cursor: pointer; border: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  .ratio-chip {
+    flex-shrink: 0; min-width: 44px;
+    padding: 5px 10px; border-radius: 999px;
+    background: var(--bg-3); color: var(--accent);
+    font-size: 12px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: center; letter-spacing: 0.02em;
+    border: 1px solid rgba(245,158,11,0.3);
+  }
+
+  /* Mixer visualisation — paint can icons showing pigment + fixative
+  /* Mixer visualisation — bucket icons with proportional fills.
+     SVG-based: tapered body + arched handle, fill rendered as a clipped
+     rect inside the body that grows from the bottom. */
+  .mixer {
+    display: flex; align-items: flex-start; gap: 8px;
+    flex-shrink: 0; height: 80px;
+    padding: 0 10px;
+  }
+  .mixer-col {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 3px;
+    flex-shrink: 0;
+  }
+  .mixer-caption {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    line-height: 1;
+  }
+  .mixer-bucket {
+    position: relative;
+    width: 48px; height: 56px;
+    align-self: center;
+    flex-shrink: 0;
+  }
+  .mixer-bucket svg {
+    width: 100%; height: 100%;
+    overflow: visible;
+  }
+  .bucket-fill {
+    transition: y 0.18s, height 0.18s, fill 0.18s;
+  }
+  .mixer-num {
+    position: absolute;
+    bottom: 6px; left: 0; right: 0;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 800;
+    font-family: ui-monospace, monospace;
+    color: rgba(255,255,255,0.95);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8),
+                 0 0 4px rgba(0,0,0,0.5);
+    line-height: 1;
+    pointer-events: none;
+    z-index: 4;
+  }
+  .mixer-arrow {
+    color: var(--text-3);
+    font-size: 18px;
+    font-weight: 300;
+    margin: 0 2px;
+    align-self: flex-start;
+    margin-top: 22px;
+  }
+  .mixer-result {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    align-self: center;
+    background: var(--accent);
+    box-shadow: inset 0 2px 4px rgba(255,255,255,0.15),
+                inset 0 -3px 6px rgba(0,0,0,0.25),
+                0 0 0 2px rgba(255,255,255,0.18),
+                0 3px 8px rgba(0,0,0,0.4);
+    transition: background 0.18s;
+  }
+  @media (max-width: 700px) {
+    .mixer { display: none; }
+  }
+
+  .icon-btn {
+    background: transparent; color: var(--text-3);
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s; flex-shrink: 0;
+  }
+  .icon-btn:hover { background: var(--bg-3); color: var(--text); }
+  .icon-btn.view-active { color: var(--accent); background: rgba(245,158,11,0.12); }
+
+  /* Paint toolbar (inside controls-row when in mask mode) */
+  .tool-group { display: flex; gap: 4px; flex-shrink: 0; }
+  .tool {
+    width: 34px; height: 34px; border-radius: 8px;
+    background: var(--bg-3); color: var(--text-2);
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s; flex-shrink: 0;
+  }
+  .tool:hover { background: #3f3a37; color: var(--text); }
+  .tool.active { background: var(--accent); color: var(--accent-text); }
+  .paint-sliders { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .paint-slider { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .paint-slider-lbl {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-3); font-weight: 600; width: 38px; flex-shrink: 0;
+  }
+  .paint-slider input[type=range] { flex: 1; height: 16px; }
+  .paint-slider input[type=range]::-webkit-slider-thumb { height: 14px; width: 14px; margin-top: -5px; }
+  .paint-slider input[type=range]::-moz-range-thumb { height: 14px; width: 14px; }
+  .paint-slider-chip {
+    flex-shrink: 0; min-width: 34px; text-align: right;
+    font-family: ui-monospace, monospace; font-size: 10px;
+    color: var(--accent); font-variant-numeric: tabular-nums;
+  }
+
+  /* 2. Colour bar — always visible */
+  .colour-bar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #22201e;
+    background: var(--bg);
+  }
+  .cb-swatch {
+    width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.08),
+      0 4px 14px rgba(0,0,0,0.5);
+    position: relative;
+  }
+  /* Checkerboard behind swatch so transparent custom colours show */
+  .cb-swatch::before {
+    content: ''; position: absolute; inset: 0; border-radius: 14px;
+    background-image:
+      linear-gradient(45deg, #555 25%, transparent 25%),
+      linear-gradient(-45deg, #555 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #555 75%),
+      linear-gradient(-45deg, transparent 75%, #555 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+    opacity: 0.3; border-radius: inherit;
+  }
+  .cb-swatch-fill {
+    position: absolute; inset: 0; border-radius: inherit;
+  }
+  .cb-info { flex: 1; min-width: 0; }
+  .cb-name {
+    font-size: 14px; font-weight: 700; color: var(--text);
+    letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cb-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .cb-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .cb-save {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--bg-3); color: var(--text-3);
+    border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .cb-save:hover { background: #3f3a37; color: var(--text); border-color: rgba(245,158,11,0.4); }
+  .cb-save.saved { color: var(--accent); border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.08); }
+  /* Pick button — always accessible eyedropper */
+  .pick-btn {
+    display: flex; align-items: center; gap: 7px;
+    padding: 0 14px; height: 36px; border-radius: 10px;
+    background: var(--bg-3); border: 1px solid var(--line);
+    color: var(--text); font-size: 12px; font-weight: 600;
+    transition: background .15s, border-color .15s, color .15s;
+    flex-shrink: 0; white-space: nowrap;
+  }
+  .pick-btn:hover { background: #3f3a37; border-color: rgba(245,158,11,0.5); }
+  .pick-btn.active {
+    background: var(--accent); color: var(--accent-text);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.25);
+  }
+  @media (max-width: 560px) { .pick-btn .pick-lbl { display: none; } }
+
+  /* Sampled results inline row (below colour bar, only when samples exist) */
+  .cb-samples {
+    background: var(--bg-2);
+    border-bottom: 1px solid #22201e;
+    padding: 0 14px 10px;
+  }
+  .cb-samples-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0 6px;
+  }
+  .cb-samples-title {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.15em;
+    color: var(--accent); font-weight: 700;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .cb-samples-clear {
+    background: transparent; color: var(--text-3);
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 3px 8px; border-radius: 5px; transition: background .15s, color .15s;
+  }
+  .cb-samples-clear:hover { background: var(--bg-3); color: var(--text); }
+  .cb-samples-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .cb-samples-scroll::-webkit-scrollbar { height: 0; }
+  .cb-sample {
+    display: flex; flex-direction: column; gap: 5px;
+    flex-shrink: 0; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 8px;
+    transition: border-color .15s;
+  }
+  .cb-sample:hover { border-color: rgba(245,158,11,0.3); }
+  .cb-sample-row { display: flex; align-items: center; gap: 5px; }
+  .cb-exact-btn {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: 5px; padding: 3px 6px 3px 3px;
+    color: var(--text); flex-shrink: 0;
+    transition: border-color .15s;
+  }
+  .cb-exact-btn:hover { border-color: var(--accent); }
+  .cb-exact-btn.active { border-color: var(--accent); background: rgba(245,158,11,0.1); }
+  .cb-exact-sw { width: 20px; height: 20px; border-radius: 3px; flex-shrink: 0; }
+  .cb-exact-lbl { font-size: 9px; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+  .cb-sep { color: var(--text-3); font-size: 11px; flex-shrink: 0; }
+  .cb-matches { display: flex; gap: 4px; }
+  .cb-match {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 3px 5px; border-radius: 5px;
+    background: var(--bg-3); border: 1px solid var(--line);
+    color: var(--text); flex-shrink: 0;
+    transition: background .15s, border-color .15s;
+  }
+  .cb-match:hover { background: #3f3a37; border-color: var(--accent); }
+  .cb-match.best { border-color: rgba(245,158,11,0.35); }
+  .cb-match.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .cb-match-sw { width: 18px; height: 18px; border-radius: 3px; }
+  .cb-match-lbl { font-size: 9px; font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  /* 3. Colour strip — vertically scrollable grid */
+  .strip-section { }
+  .strip-meta {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 14px 4px;
+    font-size: 11px; color: var(--text-2); font-weight: 500;
+  }
+  .strip-meta .pct { color: var(--text-3); margin-left: 4px; }
+  .meta-save { display: none; } /* save moved to colour bar */
+
+  /* Saved strip — single horizontal row above the main grid */
+  .strip-scroll.saved-scroll {
+    overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 0 6px;
+  }
+  .strip-scroll.saved-scroll::-webkit-scrollbar { height: 3px; }
+  .strip-scroll.saved-scroll::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 2px; }
+
+  /* Main swatch area — vertical scroll grid */
+  .strip-scroll {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 6px 0 10px;
+    max-height: 240px;
+  }
+  .strip-scroll::-webkit-scrollbar { width: 4px; }
+  .strip-scroll::-webkit-scrollbar-track { background: transparent; }
+  .strip-scroll::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 2px; }
+
+  /* Grid layout for swatches */
+  .strip {
+    display: flex; flex-wrap: wrap;
+    gap: 6px; padding: 4px 12px 8px;
+  }
+  .saved-strip {
+    display: inline-flex; gap: 7px; padding: 0 14px;
+    min-width: max-content; align-items: center;
+  }
+  .saved-head {
+    display: flex; align-items: center; gap: 4px;
+    color: var(--accent); font-size: 9px;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    font-weight: 700; padding: 0 4px 0 0; flex-shrink: 0;
+  }
+  .swatch {
+    flex-shrink: 0; width: 56px;
+    border-radius: 0;
+    box-shadow: none;
+    transition: transform .15s;
+    cursor: pointer; position: relative;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    background: transparent;
+    padding: 2px 0;
+  }
+  .swatch-colour {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+    transition: box-shadow .15s;
+  }
+  .swatch-label {
+    font-size: 9px;
+    font-family: ui-monospace, monospace;
+    font-weight: 600;
+    color: var(--text-3);
+    text-align: center;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    background: transparent;
+    white-space: nowrap;
+  }
+  .swatch:hover { transform: scale(1.1); }
+  .swatch:active { transform: scale(0.94); }
+  .swatch.active .swatch-colour {
+    box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--accent), 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .swatch.active .swatch-label { color: var(--accent); }
+  .saved-swatch { width: 40px; height: 40px; border-radius: 50%; }
+  .saved-swatch.active {
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent), 0 4px 8px rgba(0,0,0,0.4);
+  }
+
+  /* Wall/modal toggles */
+  .wall-toggle {
+    flex-shrink: 0; padding: 4px 10px; border-radius: 999px;
+    background: var(--bg-3); color: var(--text-3);
+    font-size: 10px; font-weight: 600;
+    border: 1px solid var(--line);
+    transition: background .15s, color .15s, border-color .15s;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .wall-toggle:hover { background: #3f3a37; color: var(--text); }
+  .wall-toggle.on { background: rgba(245,158,11,0.15); color: var(--accent); border-color: rgba(245,158,11,0.5); }
+
+  .modal-bg {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex; align-items: flex-end; justify-content: center;
+    padding: 0;
+  }
+  @media (min-width: 720px) { .modal-bg { align-items: center; padding: 32px; } }
+  .modal {
+    width: 100%; max-width: 460px;
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 18px 18px 0 0;
+    max-height: 85vh; overflow-y: auto;
+  }
+  @media (min-width: 720px) { .modal { border-radius: 18px; } }
+  .modal-head {
+    position: sticky; top: 0; background: var(--bg-2);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    z-index: 1;
+  }
+  .modal-title { font-size: 15px; font-weight: 600; }
+  .modal-body { padding: 18px; display: flex; flex-direction: column; gap: 22px; }
+  .section h4 {
+    margin: 0 0 8px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em;
+    color: var(--text-3); font-weight: 600;
+  }
+  .opt-list { display: flex; flex-direction: column; gap: 4px; }
+  .opt {
+    text-align: left; padding: 10px 12px; border-radius: 8px;
+    background: var(--bg); border: 1px solid var(--line);
+    color: var(--text); transition: background .15s;
+  }
+  .opt:hover { background: #2a2725; }
+  .opt.active { background: var(--bg-3); border-color: rgba(245,158,11,0.5); }
+  .opt-title { font-weight: 500; font-size: 13px; }
+  .opt-desc { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .opt.tile-opt {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    font-size: 10px; padding: 10px 4px;
+  }
+  .opt.tile-opt svg { color: var(--text-2); }
+  .opt.tile-opt.active svg { color: var(--accent); }
+  .row { display: flex; gap: 8px; }
+  input[type=color] {
+    width: 40px; height: 40px; padding: 0; border-radius: 8px;
+    border: 1px solid var(--line); background: transparent; cursor: pointer;
+  }
+  input[type=text], input[type=search] {
+    flex: 1; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; color: var(--text);
+    padding: 8px 12px; font-size: 13px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  input[type=text]:focus, input[type=search]:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .search-wrap { position: relative; }
+  .search-wrap svg {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: var(--text-3); pointer-events: none;
+  }
+  .search-wrap input { padding-left: 32px; font-family: inherit; }
+  .palette-grid {
+    display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px;
+    max-height: 180px; overflow-y: auto;
+    padding: 6px; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px;
+  }
+  .palette-cell {
+    aspect-ratio: 1; border-radius: 4px; cursor: pointer;
+    transition: transform .12s;
+    border: 0;
+  }
+  .palette-cell:hover { transform: scale(1.15); z-index: 1; }
+  .palette-cell.active { box-shadow: 0 0 0 2px var(--bg-2), 0 0 0 4px var(--accent); }
+
+  /* Persistent samples panel — sits above the strength row when samples exist */
+  .samples-panel {
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--line);
+    padding: 10px 14px 12px;
+    animation: samples-in 220ms ease;
+  }
+  @keyframes samples-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .samples-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .samples-title {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em;
+    color: var(--accent); font-weight: 700;
+  }
+  .samples-clear {
+    background: transparent; color: var(--text-3);
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 4px 8px; border-radius: 6px; transition: background .15s, color .15s;
+  }
+  .samples-clear:hover { background: var(--bg-3); color: var(--text); }
+
+  .samples-list {
+    display: flex; flex-direction: column; gap: 6px;
+    max-height: 30vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .samples-list::-webkit-scrollbar { width: 4px; }
+  .samples-list::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 2px; }
+
+  .sample-row {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px;
+  }
+  .sample-exact {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-3); border: 1px solid var(--line);
+    border-radius: 6px; padding: 4px 8px 4px 4px;
+    color: var(--text); flex-shrink: 0;
+    transition: background .15s, border-color .15s;
+  }
+  .sample-exact:hover { background: #3f3a37; border-color: var(--accent); }
+  .sample-exact.active { border-color: var(--accent); background: rgba(245,158,11,0.1); }
+  .sample-exact-sw {
+    width: 26px; height: 26px; border-radius: 4px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+    flex-shrink: 0;
+  }
+  .sample-exact-info { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+  .sample-exact-lbl {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--accent); font-weight: 700;
+  }
+  .sample-exact-hex {
+    font-size: 11px; font-family: ui-monospace, monospace;
+    color: var(--text);
+  }
+
+  .sample-arrow {
+    color: var(--text-3); font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .sample-matches {
+    display: flex; gap: 4px; overflow-x: auto;
+    flex: 1; min-width: 0;
+  }
+  .sample-matches::-webkit-scrollbar { height: 0; }
+  .sample-match {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 3px 6px; border-radius: 5px;
+    background: var(--bg-3); border: 1px solid var(--line);
+    color: var(--text); flex-shrink: 0;
+    transition: background .15s, border-color .15s;
+  }
+  .sample-match:hover { background: #3f3a37; border-color: var(--accent); }
+  .sample-match.best { border-color: rgba(245,158,11,0.4); }
+  .sample-match.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .sample-match-sw {
+    width: 20px; height: 20px; border-radius: 3px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+  }
+  .sample-match-lbl {
+    font-size: 9px; font-family: ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Match-from-image section in the More sheet */
+  .match-section-head {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--accent); margin-bottom: 6px;
+  }
+  .match-section-head h4 {
+    margin: 0;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em;
+    color: var(--accent); font-weight: 700;
+  }
+  .section-hint {
+    margin: 0 0 10px;
+    font-size: 11px; color: var(--text-2); line-height: 1.4;
+  }
+  .dom-list { display: flex; flex-direction: column; gap: 6px; }
+  .dom-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px; border-radius: 8px;
+    background: var(--bg); border: 1px solid var(--line);
+  }
+  .dom-sample {
+    width: 36px; height: 36px; border-radius: 6px; flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+  }
+  .dom-arrow { color: var(--text-3); font-size: 14px; flex-shrink: 0; }
+  .dom-matches { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+  .dom-chip {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 4px 6px; border-radius: 6px;
+    background: var(--bg-3); border: 1px solid var(--line);
+    color: var(--text); transition: background .15s, border-color .15s;
+    min-width: 50px;
+  }
+  .dom-chip:hover { background: #3f3a37; border-color: var(--accent); }
+  .dom-chip.best { border-color: rgba(245,158,11,0.5); }
+  .dom-chip.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .dom-chip-sw {
+    width: 22px; height: 22px; border-radius: 4px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+  }
+  .dom-chip-lbl {
+    font-size: 10px; font-family: ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Compatibility hint when iframed */
+  .ratio-stage { /* dimensions set by updateStageSize() after layout */ }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- ICONS -->
+<svg style="display:none">
+  <symbol id="i-rotate" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="7 10 12 15 17 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="17 8 12 3 7 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-brush" viewBox="0 0 24 24"><path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-roller" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 9v3a1 1 0 0 1-1 1H5a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="11" y="17" width="4" height="4" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-eraser" viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 21H7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m5 11 9 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" y1="6" x2="3" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="15" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="17" y1="18" x2="3" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="18" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="20" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-arrow-ud" viewBox="0 0 24 24"><polyline points="21 16 17 20 13 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="17" y1="20" x2="17" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="3 8 7 4 11 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="7" y1="4" x2="7" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-arrow-lr" viewBox="0 0 24 24"><polyline points="17 11 21 7 17 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="21" y1="7" x2="9" y2="7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="7 21 3 17 7 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="15" y1="17" x2="3" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="9" r="2" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="21 15 16 10 5 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chev-up" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chev-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chev-left" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chev-right" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-pipette" viewBox="0 0 24 24"><path d="m2 22 1-1h3l9-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21v-3l9-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3 13.9 9.6 20.5 11.5 13.9 13.4 12 20 10.1 13.4 3.5 11.5 10.1 9.6 12 3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M19 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M21 5h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-bookmark-filled" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+</svg>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------------- DATA ----------------
+  var KEIM = [
+    {n:'9001',h:'#efe984'},{n:'9073',h:'#e7ca91'},{n:'9125',h:'#b9876a'},{n:'9002',h:'#dda850'},
+    {n:'9003',h:'#954737'},{n:'9075',h:'#ead5a9'},{n:'9076',h:'#ebddba'},{n:'9129',h:'#ceb18e'},
+    {n:'9132',h:'#d8c3ac'},{n:'9004',h:'#6b644d'},{n:'9005',h:'#5c7d57'},{n:'9077',h:'#e7dabd'},
+    {n:'9078',h:'#e8e2c4'},{n:'9135',h:'#d2a78c'},{n:'9136',h:'#e6d5c4'},{n:'9033',h:'#e7dda4'},
+    {n:'9036',h:'#e9ddb4'},{n:'9037',h:'#e9e1c1'},{n:'9084',h:'#d4ac5b'},{n:'9087',h:'#eac578'},
+    {n:'9089',h:'#ebcc9a'},{n:'9090',h:'#eddbb6'},{n:'9091',h:'#ede0c7'},{n:'9092',h:'#e9e2d3'},
+    {n:'9144',h:'#ae8854'},{n:'9146',h:'#c19962'},{n:'9149',h:'#d0a78c'},{n:'9153',h:'#e4b888'},
+    {n:'9154',h:'#e9c69c'},{n:'9156',h:'#ebd4b3'},{n:'9157',h:'#eddcc5'},{n:'9095',h:'#efdece'},
+    {n:'9102',h:'#8f6d58'},{n:'9103',h:'#a67655'},{n:'9162',h:'#9f5845'},{n:'9164',h:'#bc6f58'},
+    {n:'9166',h:'#d18972'},{n:'9169',h:'#de9f8c'},{n:'9171',h:'#e2b4a2'},{n:'9174',h:'#e8cbc0'},
+    {n:'9176',h:'#ebd7ce'},{n:'9177',h:'#ebe1d9'},{n:'9182',h:'#916152'},{n:'9183',h:'#a67468'},
+    {n:'9184',h:'#b87b69'},{n:'9186',h:'#bc8b7a'},{n:'9187',h:'#c59d8b'},{n:'9190',h:'#d1ad9d'},
+    {n:'9192',h:'#d9bdad'},{n:'9195',h:'#e1c9ba'},{n:'9197',h:'#e5d1c6'},{n:'9200',h:'#e7d7d0'},
+    {n:'9201',h:'#e8e0d8'},{n:'9263',h:'#8e775c'},{n:'9265',h:'#a69272'},{n:'9268',h:'#bea78d'},
+    {n:'9271',h:'#d2b99d'},{n:'9274',h:'#e1c9b2'},{n:'9276',h:'#e9d7c2'},{n:'9283',h:'#efe0cc'},
+    {n:'9285',h:'#b59683'},{n:'9288',h:'#c1a79a'},{n:'9292',h:'#cdbcb2'},{n:'9294',h:'#d8ccc2'},
+    {n:'9295',h:'#e1d8d1'},{n:'9296',h:'#e7e1da'},{n:'9323',h:'#97825a'},{n:'9325',h:'#b3946f'},
+    {n:'9328',h:'#c1a27b'},{n:'9329',h:'#ceb088'},{n:'9332',h:'#d9c7a1'},{n:'9335',h:'#ddd3b5'},
+    {n:'9337',h:'#e1d9c1'},{n:'9339',h:'#e4decd'},{n:'9345',h:'#e8e5d7'},{n:'9348',h:'#eae6db'},
+    {n:'9382',h:'#85795c'},{n:'9383',h:'#a58f5e'},{n:'9385',h:'#c3a460'},{n:'9389',h:'#cdaf74'},
+    {n:'9392',h:'#d2bd86'},{n:'9395',h:'#d8c59f'},{n:'9396',h:'#e1d2b3'},{n:'9398',h:'#e4d9c1'},
+    {n:'9402',h:'#e7e1d0'},{n:'9430',h:'#9c7769'},{n:'9432',h:'#ac8c7a'},{n:'9435',h:'#bea08f'},
+    {n:'9436',h:'#cdae9e'},{n:'9437',h:'#d8beae'},{n:'9448',h:'#e1cec0'},{n:'9451',h:'#e5d7cc'},
+    {n:'9454',h:'#e8e0d8'},{n:'9456',h:'#a19669'},{n:'9457',h:'#b49c80'},{n:'9463',h:'#c7ac95'},
+    {n:'9466',h:'#d1b8a0'},{n:'9468',h:'#dbcaa8'},{n:'9471',h:'#e4d8bd'},{n:'9473',h:'#e8e1ce'},
+    {n:'9475',h:'#eae6d8'},{n:'9482',h:'#627763'},{n:'9486',h:'#909f84'},{n:'9488',h:'#b4bb90'},
+    {n:'9490',h:'#c5caa2'},{n:'9493',h:'#8eb1aa'},{n:'9494',h:'#b6cec1'},{n:'9497',h:'#cde5d5'},
+    {n:'9505',h:'#dbe1d6'},{n:'9510',h:'#e7e6da'},{n:'9514',h:'#8eb1b4'},{n:'9516',h:'#aabdaa'},
+    {n:'9523',h:'#c5c9c6'},{n:'9525',h:'#d5dbda'},{n:'9526',h:'#e1e1da'},{n:'9529',h:'#e8e2d8'},
+    {n:'9531',h:'#929f84'},{n:'9533',h:'#a3ad9a'},{n:'9536',h:'#c7c9c1'},{n:'9541',h:'#8e7c5a'},
+    {n:'9543',h:'#a08c7c'},{n:'9546',h:'#b2a08a'},{n:'9550',h:'#beac9a'},{n:'9552',h:'#c9bba8'},
+    {n:'9554',h:'#d2c6b4'},{n:'9555',h:'#dad0bc'},{n:'9556',h:'#e1d8c6'},{n:'9564',h:'#e4dece'},
+    {n:'9567',h:'#615c54'},{n:'9569',h:'#817c75'},{n:'9572',h:'#9e968b'},{n:'9574',h:'#b9b0a5'},
+    {n:'9576',h:'#cbc4b9'},{n:'9582',h:'#d4cec3'},{n:'9585',h:'#dcd6cb'},{n:'9590',h:'#e2ddd3'},
+    {n:'9592',h:'#918680'},{n:'9595',h:'#a9a09a'},{n:'9870',h:'#bbaeaa'}
+  ];
+
+  // Full KEIM Exclusiv palette — all 130 colours sorted numerically by code
+  var STRIP_CODES = KEIM.map(function(c) { return c.n; })
+    .sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
+
+  var FINISHES = [
+    {id:'multiply', label:'Lasur (Standard)', desc:'Translucent stain — darkens & tints substrate, preserves texture'},
+    {id:'color', label:'Lasur (Hue only)', desc:'Hue-shift only — best on bright/saturated paints'},
+    {id:'normal', label:'Opaque', desc:'Full coverage — like Soldalit'}
+  ];
+
+  var SUBSTRATES = [
+    {id:'concrete',          label:'Concrete',        subtitle:'Off-form board-marked'},
+    {id:'concrete_ribbed',   label:'Concrete',        subtitle:'Vertical board-formed'},
+    {id:'concrete_polished', label:'Concrete',        subtitle:'Polished / honed'},
+    {id:'concrete_weathered',label:'Concrete',        subtitle:'Weathered & stained'},
+    {id:'brick_red',         label:'Brick',           subtitle:'Heritage red'},
+    {id:'brick_buff',        label:'Brick',           subtitle:'Buff / sandstock'},
+    {id:'brick_grey',        label:'Brick',           subtitle:'Grey engineering'},
+    {id:'brick_old',         label:'Brick',           subtitle:'Aged & weathered'},
+    {id:'limestone',         label:'Limestone',       subtitle:'Cut ashlar block'},
+    {id:'sandstone',         label:'Sandstone',       subtitle:'Bush-hammered'},
+    {id:'render_sand',       label:'Render',          subtitle:'Sand float'},
+    {id:'plasterboard',      label:'Plaster',         subtitle:'Smooth internal'}
+  ];
+
+  // Concretal-Lasur dilution ratios — Light (1:10) to Strong (1:0)
+  // Ordered to match the official KEIM ratio chart. The "value" is the
+  // effective opacity used for rendering, calibrated against the printed
+  // swatch chart so visual intensity matches expectations on a grey
+  // concrete substrate (pure dilution math is too subtle below 1:1).
+  // Ratios above 1:1 are inverted (paint-heavier than thinner).
+  // Tinting strength for multiply-blend Lasur.
+  // 100 = fill with exact paint colour → strongest tint, substrate fully visible.
+  //   0 = fill with white → no tint at all, substrate unchanged.
+  // Multiply blend preserves substrate texture at EVERY value.
+  // Concretal-Lasur dilution ratios — Light (1:10) to Strong (1:0)
+  // The "value" is the actual mathematical mix percentage:
+  //   pigment_parts / (pigment_parts + fixative_parts) × 100
+  // This means the bucket display, the result swatch, and the wall
+  // rendering all reflect the SAME physical mix proportion.
+  var DILUTIONS = [
+    {label:'1:10', value:  9},  // 1 / 11 = 9%
+    {label:'1:8',  value: 11},  // 1 / 9
+    {label:'1:6',  value: 14},  // 1 / 7
+    {label:'1:5',  value: 17},  // 1 / 6
+    {label:'1:4',  value: 20},  // 1 / 5
+    {label:'1:3',  value: 25},  // 1 / 4
+    {label:'1:2',  value: 33},  // 1 / 3
+    {label:'2:3',  value: 40},  // 2 / 5
+    {label:'1:1',  value: 50},  // 1 / 2 — exact midpoint
+    {label:'2:1',  value: 67},  // 2 / 3
+    {label:'3:1',  value: 75},  // 3 / 4
+    {label:'4:1',  value: 80},  // 4 / 5
+    {label:'5:1',  value: 83},  // 5 / 6
+    {label:'6:1',  value: 86},  // 6 / 7
+    {label:'8:1',  value: 89},  // 8 / 9
+    {label:'10:1', value: 91},  // 10 / 11
+    {label:'1:0',  value:100}   // pure pigment
+  ];
+
+  var CONCRETE_RGB = {r:195, g:188, b:175};
+
+  // ---------------- HELPERS ----------------
+  function hexToRgb(hex) {
+    var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return m ? {r:parseInt(m[1],16), g:parseInt(m[2],16), b:parseInt(m[3],16)} : null;
+  }
+
+  // Compute the fill colour for multiply-blend Lasur simulation.
+  // At strength=100 (1:0): returns the paint colour exactly.
+  // At lower strengths: interpolates toward white (#fff).
+  // multiply(white, substrate) = substrate unchanged.
+  // multiply(paint, substrate) = substrate tinted by paint.
+  // So dragging from 1:10→1:0 goes from "barely tinted" to "fully tinted"
+  // while the substrate texture ALWAYS shows through at every ratio.
+  function lasurFillColor(hex, strengthPct) {
+    var paint = hexToRgb(hex);
+    if (!paint) return hex;
+    var s = Math.max(0, Math.min(1, strengthPct / 100));
+    // Lerp from white (255,255,255) toward paint colour
+    var r = Math.round(255 + (paint.r - 255) * s);
+    var g = Math.round(255 + (paint.g - 255) * s);
+    var b = Math.round(255 + (paint.b - 255) * s);
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+  function blendOverConcrete(hex, pct) {
+    var fg = hexToRgb(hex); if (!fg) return '#c3bcaf';
+    var a = Math.max(0, Math.min(1, pct/100));
+    var r = Math.round(fg.r*a + CONCRETE_RGB.r*(1-a));
+    var g = Math.round(fg.g*a + CONCRETE_RGB.g*(1-a));
+    var b = Math.round(fg.b*a + CONCRETE_RGB.b*(1-a));
+    return 'rgb('+r+','+g+','+b+')';
+  }
+  function findKeim(hex) {
+    if (!hex) return null;
+    hex = hex.toLowerCase();
+    for (var i = 0; i < KEIM.length; i++) if (KEIM[i].h.toLowerCase() === hex) return KEIM[i];
+    return null;
+  }
+
+  // Return the N nearest KEIM Exclusiv colours to a given hex, with distance
+  function nearestKeimList(hex, n) {
+    var t = hexToRgb(hex);
+    if (!t) return [];
+    var arr = KEIM.map(function(c) {
+      var r = hexToRgb(c.h);
+      var d = Math.sqrt((t.r-r.r)*(t.r-r.r) + (t.g-r.g)*(t.g-r.g) + (t.b-r.b)*(t.b-r.b));
+      return {n:c.n, h:c.h, d:d};
+    });
+    arr.sort(function(a,b){ return a.d - b.d; });
+    return arr.slice(0, n||3);
+  }
+
+  // Extract dominant colours from an image canvas using a lightweight
+  // bucket-then-merge approach (close to k-means but deterministic & fast)
+  // -----------------------------------------------------------
+  // WALL SEGMENTATION (heuristic, runs in browser, ~80% accuracy)
+  // -----------------------------------------------------------
+  // Scores each pixel for "wall-likeness" using:
+  //   1. Saturation (walls are usually low-saturation/desaturated)
+  //   2. Lightness   (mid-range — exclude pure black windows & blown-out sky)
+  //   3. Local variance — walls are SMOOTH, foliage/textiles/floors are busy
+  // Then erodes/dilates to clean up speckle, and box-blurs the boundary.
+  // Returns an ImageData where alpha = wall confidence (0–255).
+  function detectWallMask(sourceCanvas) {
+    var w = sourceCanvas.width, h = sourceCanvas.height;
+    // Detection is done at reduced resolution for speed, then upscaled.
+    // 400px max keeps it under ~50ms even on a phone.
+    var maxSide = 400;
+    var scale = Math.min(1, maxSide / Math.max(w, h));
+    var sw = Math.max(1, Math.round(w * scale));
+    var sh = Math.max(1, Math.round(h * scale));
+
+    // Render the source down to a working canvas
+    var work = document.createElement('canvas');
+    work.width = sw; work.height = sh;
+    var wctx = work.getContext('2d');
+    wctx.drawImage(sourceCanvas, 0, 0, sw, sh);
+    var data = wctx.getImageData(0, 0, sw, sh).data;
+
+    // Convert to HSL once (storing only S and L for speed)
+    var sat = new Uint8Array(sw * sh);
+    var lit = new Uint8Array(sw * sh);
+    for (var i = 0; i < sw * sh; i++) {
+      var r = data[i*4]/255, g = data[i*4+1]/255, b = data[i*4+2]/255;
+      var max = Math.max(r,g,b), min = Math.min(r,g,b);
+      var l = (max+min)/2;
+      var s = 0;
+      if (max !== min) {
+        var d = max - min;
+        s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+      }
+      sat[i] = Math.round(s * 255);
+      lit[i] = Math.round(l * 255);
+    }
+
+    // Local lightness variance — sample 8 neighbours (cardinal + diagonal)
+    // at radius 4 so even subtle bedding/fabric texture fails the smooth test
+    var variance = new Uint8Array(sw * sh);
+    var rad = 4;
+    for (var y = 0; y < sh; y++) {
+      for (var x = 0; x < sw; x++) {
+        var idx = y*sw + x;
+        var c = lit[idx];
+        var sum = 0;
+        var ny = y - rad, sy = y + rad, wx = x - rad, ex = x + rad;
+        if (ny >= 0)        sum += Math.abs(c - lit[ny*sw + x]);
+        if (sy < sh)        sum += Math.abs(c - lit[sy*sw + x]);
+        if (wx >= 0)        sum += Math.abs(c - lit[idx - rad]);
+        if (ex < sw)        sum += Math.abs(c - lit[idx + rad]);
+        if (ny >= 0 && wx >= 0) sum += Math.abs(c - lit[ny*sw + wx]);
+        if (ny >= 0 && ex < sw) sum += Math.abs(c - lit[ny*sw + ex]);
+        if (sy < sh && wx >= 0) sum += Math.abs(c - lit[sy*sw + wx]);
+        if (sy < sh && ex < sw) sum += Math.abs(c - lit[sy*sw + ex]);
+        variance[idx] = Math.min(255, sum);
+      }
+    }
+
+    // Score: high if low-sat + mid-lightness + low-variance + upper-frame
+    var score = new Uint8Array(sw * sh);
+    for (var py = 0; py < sh; py++) {
+      // Vertical bias: walls and ceilings dominate the upper 2/3 of the
+      // frame; floors, beds, and rugs dominate the lower third. Apply a
+      // gentle penalty as we descend below 60% of the frame height.
+      var verticalBias;
+      var rel = py / sh;
+      if (rel < 0.6) verticalBias = 1;
+      else verticalBias = Math.max(0.25, 1 - (rel - 0.6) * 1.5);
+
+      for (var px = 0; px < sw; px++) {
+        var idx2 = py*sw + px;
+        // Saturation: prefer < 35/255 (~14%); penalise above
+        var sScore = sat[idx2] < 35 ? 1 : Math.max(0, 1 - (sat[idx2] - 35) / 90);
+        // Lightness: prefer 60–235 (exclude near-black & blown-out)
+        var lv = lit[idx2];
+        var lScore = (lv >= 60 && lv <= 235)
+          ? 1
+          : (lv < 60 ? Math.max(0, lv / 60) : Math.max(0, (255 - lv) / 20));
+        // Variance: prefer < 18; sharply penalise any texture above that.
+        // This is the key change for interior scenes — bedding and rugs
+        // accumulate enough variance to fail this check.
+        var vScore = variance[idx2] < 18
+          ? 1
+          : Math.max(0, 1 - (variance[idx2] - 18) / 40);
+        var combined = sScore * lScore * vScore * verticalBias;
+        score[idx2] = Math.round(combined * 255);
+      }
+    }
+
+    // Threshold to binary, then morphological cleanup
+    var threshold = 130;
+    var bin = new Uint8Array(sw * sh);
+    for (var i3 = 0; i3 < sw * sh; i3++) bin[i3] = score[i3] > threshold ? 255 : 0;
+
+    // Erode harder to break weak connections between walls and adjacent
+    // wall-coloured objects (e.g. bedding next to a wall)
+    bin = morph(bin, sw, sh, 'erode', 2);
+    bin = morph(bin, sw, sh, 'dilate', 3);
+    bin = morph(bin, sw, sh, 'erode', 1);
+
+    // Connected-component analysis — keep only the largest few regions.
+    // This is the strongest signal: walls are usually ONE big contiguous
+    // blob; bedding, rugs, furniture form smaller disconnected blobs.
+    bin = keepLargestComponents(bin, sw, sh, 2, 0.04);
+
+    // Box-blur to feather the boundary so the colour overlay edges aren't jagged
+    var feathered = boxBlur(bin, sw, sh, 3);
+
+    // Build the mask as full-resolution ImageData using the source canvas size.
+    var maskCanvas = document.createElement('canvas');
+    maskCanvas.width = sw; maskCanvas.height = sh;
+    var maskCtx = maskCanvas.getContext('2d');
+    var maskData = maskCtx.createImageData(sw, sh);
+    for (var i4 = 0; i4 < sw * sh; i4++) {
+      maskData.data[i4*4]   = 255;
+      maskData.data[i4*4+1] = 255;
+      maskData.data[i4*4+2] = 255;
+      maskData.data[i4*4+3] = feathered[i4];
+    }
+    maskCtx.putImageData(maskData, 0, 0);
+
+    // Upscale to full source resolution with smoothing for soft edges
+    var fullCanvas = document.createElement('canvas');
+    fullCanvas.width = w; fullCanvas.height = h;
+    var fullCtx = fullCanvas.getContext('2d');
+    fullCtx.imageSmoothingEnabled = true;
+    fullCtx.imageSmoothingQuality = 'high';
+    fullCtx.drawImage(maskCanvas, 0, 0, w, h);
+    return fullCanvas;
+  }
+
+  // Connected-component labelling (4-connected). Keeps the top N components
+  // by pixel count, but only if they exceed minFraction of total pixels.
+  // This is what filters out bedding/furniture/rugs while keeping walls.
+  function keepLargestComponents(src, w, h, topN, minFraction) {
+    var total = w * h;
+    var labels = new Int32Array(total);
+    var sizes = [0]; // index 0 is background
+    var stack = new Int32Array(total);
+    var nextLabel = 1;
+
+    for (var i = 0; i < total; i++) {
+      if (src[i] !== 255 || labels[i] !== 0) continue;
+      // Iterative flood-fill (avoid stack overflow on large blobs)
+      var top = 0, count = 0;
+      stack[top++] = i;
+      labels[i] = nextLabel;
+      while (top > 0) {
+        var p = stack[--top];
+        count++;
+        var py = (p / w) | 0;
+        var px = p - py * w;
+        // 4-connected neighbours
+        if (px > 0     && src[p-1] === 255 && labels[p-1] === 0) { labels[p-1]=nextLabel; stack[top++]=p-1; }
+        if (px < w-1   && src[p+1] === 255 && labels[p+1] === 0) { labels[p+1]=nextLabel; stack[top++]=p+1; }
+        if (py > 0     && src[p-w] === 255 && labels[p-w] === 0) { labels[p-w]=nextLabel; stack[top++]=p-w; }
+        if (py < h-1   && src[p+w] === 255 && labels[p+w] === 0) { labels[p+w]=nextLabel; stack[top++]=p+w; }
+      }
+      sizes.push(count);
+      nextLabel++;
+    }
+
+    // Find the top N component labels by size
+    var indexed = sizes.map(function(c, idx) { return {label: idx, size: c}; });
+    indexed.sort(function(a, b) { return b.size - a.size; });
+    var minSize = total * minFraction;
+    var keepLabels = {};
+    for (var k = 0; k < Math.min(topN, indexed.length); k++) {
+      if (indexed[k].label === 0) continue;
+      if (indexed[k].size < minSize) break;
+      keepLabels[indexed[k].label] = true;
+    }
+
+    var out = new Uint8Array(total);
+    for (var j = 0; j < total; j++) {
+      out[j] = keepLabels[labels[j]] ? 255 : 0;
+    }
+    return out;
+  }
+
+  // Simple morphological op: erode shrinks white regions, dilate grows them.
+  // 4-connected neighbourhood, repeated `iterations` times.
+  function morph(src, w, h, op, iterations) {
+    var cur = src;
+    for (var it = 0; it < iterations; it++) {
+      var dst = new Uint8Array(w*h);
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          var i = y*w + x;
+          if (op === 'erode') {
+            // White only if all 4 neighbours are white
+            var ok = cur[i] === 255;
+            if (ok && y > 0)   ok = cur[(y-1)*w + x] === 255;
+            if (ok && y < h-1) ok = cur[(y+1)*w + x] === 255;
+            if (ok && x > 0)   ok = cur[i-1] === 255;
+            if (ok && x < w-1) ok = cur[i+1] === 255;
+            dst[i] = ok ? 255 : 0;
+          } else {
+            // dilate: white if any neighbour (or self) is white
+            var any = cur[i] === 255;
+            if (!any && y > 0)   any = cur[(y-1)*w + x] === 255;
+            if (!any && y < h-1) any = cur[(y+1)*w + x] === 255;
+            if (!any && x > 0)   any = cur[i-1] === 255;
+            if (!any && x < w-1) any = cur[i+1] === 255;
+            dst[i] = any ? 255 : 0;
+          }
+        }
+      }
+      cur = dst;
+    }
+    return cur;
+  }
+
+  // Box-blur on a single channel, separable (horizontal + vertical pass)
+  function boxBlur(src, w, h, radius) {
+    var tmp = new Uint8Array(w*h);
+    var dst = new Uint8Array(w*h);
+    var size = radius*2 + 1;
+    // Horizontal
+    for (var y = 0; y < h; y++) {
+      var sum = 0;
+      for (var k = -radius; k <= radius; k++) sum += src[y*w + Math.max(0, Math.min(w-1, k))];
+      for (var x = 0; x < w; x++) {
+        tmp[y*w + x] = Math.round(sum / size);
+        var nx = x + radius + 1;
+        var ox = x - radius;
+        sum += src[y*w + Math.max(0, Math.min(w-1, nx))] - src[y*w + Math.max(0, Math.min(w-1, ox))];
+      }
+    }
+    // Vertical
+    for (var x2 = 0; x2 < w; x2++) {
+      var sum2 = 0;
+      for (var k2 = -radius; k2 <= radius; k2++) sum2 += tmp[Math.max(0, Math.min(h-1, k2))*w + x2];
+      for (var y2 = 0; y2 < h; y2++) {
+        dst[y2*w + x2] = Math.round(sum2 / size);
+        var ny = y2 + radius + 1;
+        var oy = y2 - radius;
+        sum2 += tmp[Math.max(0, Math.min(h-1, ny))*w + x2] - tmp[Math.max(0, Math.min(h-1, oy))*w + x2];
+      }
+    }
+    return dst;
+  }
+
+  function extractDominantColors(sourceCanvas, count) {
+    count = count || 5;
+    // Downsample for speed — we only need a representative sample
+    var maxSide = 120;
+    var w = sourceCanvas.width, h = sourceCanvas.height;
+    var scale = Math.min(1, maxSide / Math.max(w, h));
+    var sw = Math.max(1, Math.round(w * scale));
+    var sh = Math.max(1, Math.round(h * scale));
+    var tmp = document.createElement('canvas');
+    tmp.width = sw; tmp.height = sh;
+    tmp.getContext('2d').drawImage(sourceCanvas, 0, 0, sw, sh);
+    var data = tmp.getContext('2d').getImageData(0, 0, sw, sh).data;
+
+    // Bucket pixels into a coarse 5-bit-per-channel grid (32^3 = 32768 buckets)
+    var buckets = {};
+    for (var i = 0; i < data.length; i += 4) {
+      var r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+      if (a < 200) continue; // skip semi-transparent
+      var key = (r >> 3) + '_' + (g >> 3) + '_' + (b >> 3);
+      if (!buckets[key]) buckets[key] = {r:0, g:0, b:0, c:0};
+      var bk = buckets[key];
+      bk.r += r; bk.g += g; bk.b += b; bk.c += 1;
+    }
+
+    // Convert to flat array with averaged centres
+    var arr = [];
+    for (var k in buckets) {
+      var bk = buckets[k];
+      arr.push({
+        r: Math.round(bk.r / bk.c),
+        g: Math.round(bk.g / bk.c),
+        b: Math.round(bk.b / bk.c),
+        c: bk.c
+      });
+    }
+
+    // Sort by population, then greedily pick colours that are perceptually distinct
+    arr.sort(function(a,b){ return b.c - a.c; });
+    var picks = [];
+    var minDist = 35; // require this much RGB distance to be considered a new colour
+    for (var j = 0; j < arr.length && picks.length < count; j++) {
+      var cand = arr[j];
+      var ok = true;
+      for (var p = 0; p < picks.length; p++) {
+        var dr = cand.r - picks[p].r;
+        var dg = cand.g - picks[p].g;
+        var db = cand.b - picks[p].b;
+        if (Math.sqrt(dr*dr+dg*dg+db*db) < minDist) { ok = false; break; }
+      }
+      if (ok) picks.push(cand);
+    }
+
+    return picks.map(function(p) {
+      return {
+        hex: '#' + [p.r, p.g, p.b].map(function(v) {
+          var s = v.toString(16); return s.length === 1 ? '0' + s : s;
+        }).join(''),
+        rgb: p
+      };
+    });
+  }
+  function $(sel, root) { return (root||document).querySelector(sel); }
+  function ce(tag, opts) {
+    var el = document.createElement(tag);
+    if (!opts) return el;
+    if (opts.cls) el.className = opts.cls;
+    if (opts.html != null) el.innerHTML = opts.html;
+    if (opts.text != null) el.textContent = opts.text;
+    if (opts.attr) for (var k in opts.attr) el.setAttribute(k, opts.attr[k]);
+    if (opts.style) for (var s in opts.style) el.style[s] = opts.style[s];
+    if (opts.on) for (var ev in opts.on) el.addEventListener(ev, opts.on[ev]);
+    return el;
+  }
+  function svgUse(id, size) {
+    size = size || 16;
+    return '<svg width="'+size+'" height="'+size+'" aria-hidden="true"><use href="#'+id+'"/></svg>';
+  }
+
+  // ---------------- SUBSTRATE GENERATORS ----------------
+  function addNoise(ctx, x, y, w, h, amt) {
+    // Clamp to integers and guard against zero/negative dimensions
+    x = Math.floor(Math.max(0, x));
+    y = Math.floor(Math.max(0, y));
+    w = Math.floor(w);
+    h = Math.floor(h);
+    if (w <= 0 || h <= 0) return;
+    var img = ctx.getImageData(x, y, w, h);
+    for (var i = 0; i < img.data.length; i += 4) {
+      var n = (Math.random()-0.5)*amt;
+      img.data[i]   = Math.max(0,Math.min(255, img.data[i]+n));
+      img.data[i+1] = Math.max(0,Math.min(255, img.data[i+1]+n));
+      img.data[i+2] = Math.max(0,Math.min(255, img.data[i+2]+n));
+    }
+    ctx.putImageData(img, x, y);
+  }
+  function makeConcrete(w, h) {
+    var c = document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx = c.getContext('2d');
+
+    // ── Clean smooth base ──────────────────────────────────────────────────
+    var base = ctx.createLinearGradient(0, 0, 0, h);
+    base.addColorStop(0,   '#c2c5c8');
+    base.addColorStop(0.5, '#b8bbbe');
+    base.addColorStop(1,   '#adb0b3');
+    ctx.fillStyle = base; ctx.fillRect(0, 0, w, h);
+
+    // Minimal noise — just enough to feel like material, not plastic
+    addNoise(ctx, 0, 0, w, h, 5);
+
+    // ── 3 board-form panels — subtle, deterministic ────────────────────────
+    var numC = 3;
+    var cH   = h / numC;
+    // Very gentle panel shifts — just enough to read, not jarring
+    var shifts = [6, -8, 5];
+    for (var ci = 0; ci < numC; ci++) {
+      var cy  = Math.round(ci * cH);
+      var ch2 = Math.round((ci + 1) * cH) - cy;
+      var v   = Math.round(180 + shifts[ci]);
+      ctx.fillStyle = 'rgba('+v+','+v+','+v+',0.15)';
+      ctx.fillRect(0, cy, w, ch2);
+
+      // Joint: single dark line + single light line
+      if (ci > 0) {
+        ctx.fillStyle = 'rgba(0,0,0,0.20)';
+        ctx.fillRect(0, cy, w, 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.10)';
+        ctx.fillRect(0, cy + 2, w, 1);
+      }
+    }
+
+    // ── Form-tie holes — 3×3, perfectly centred ────────────────────────────
+    var xPads = [0.22, 0.50, 0.78];
+    var rad   = w * 0.010;
+    for (var hci = 0; hci < 3; hci++) {
+      for (var hri = 0; hri < 3; hri++) {
+        var hx = xPads[hci] * w;
+        var hy = (hri + 0.5) * cH;
+
+        // Shadow halo
+        var sg = ctx.createRadialGradient(hx+1.5, hy+2, 0, hx, hy, rad*5);
+        sg.addColorStop(0,   'rgba(0,0,0,0.32)');
+        sg.addColorStop(0.4, 'rgba(0,0,0,0.10)');
+        sg.addColorStop(1,   'transparent');
+        ctx.fillStyle = sg;
+        ctx.beginPath(); ctx.arc(hx, hy, rad*5, 0, Math.PI*2); ctx.fill();
+
+        // Dark hole
+        var hg = ctx.createRadialGradient(hx+0.5, hy+1, 0, hx, hy, rad*1.7);
+        hg.addColorStop(0,   'rgba(10,11,14,0.97)');
+        hg.addColorStop(0.6, 'rgba(22,24,28,0.72)');
+        hg.addColorStop(1,   'transparent');
+        ctx.fillStyle = hg;
+        ctx.beginPath(); ctx.arc(hx, hy, rad*1.7, 0, Math.PI*2); ctx.fill();
+
+        // Specular rim
+        ctx.fillStyle = 'rgba(255,255,255,0.26)';
+        ctx.beginPath();
+        ctx.arc(hx - rad*0.5, hy - rad*0.55, rad*0.62, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+
+    return c;
+  }
+  function makeBrick(w, h) {
+    var c=document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx=c.getContext('2d');
+    ctx.fillStyle='#a8a098'; ctx.fillRect(0,0,w,h);
+    addNoise(ctx,0,0,w,h,18);
+    var bw=Math.round(w/11), bh=Math.round(bw*0.34), gap=Math.max(4, Math.round(bw*0.05));
+    var row=0;
+    for (var y=-bh; y<h+bh; y+=bh+gap) {
+      var off=(row%2)*((bw+gap)/2);
+      for (var x=-bw; x<w+bw; x+=bw+gap) {
+        var px=x+off;
+        var hue=12+Math.random()*18, sat=28+Math.random()*18, lit=30+Math.random()*16;
+        ctx.fillStyle='hsl('+hue+','+sat+'%,'+lit+'%)';
+        ctx.fillRect(px,y,bw,bh);
+        var grd=ctx.createLinearGradient(0,y,0,y+bh);
+        grd.addColorStop(0,'rgba(255,255,255,0.10)');
+        grd.addColorStop(0.5,'rgba(0,0,0,0)');
+        grd.addColorStop(1,'rgba(0,0,0,0.14)');
+        ctx.fillStyle=grd; ctx.fillRect(px,y,bw,bh);
+        var cx=Math.max(0,px), cy=Math.max(0,y);
+        var cw=Math.min(bw,w-cx), ch=Math.min(bh,h-cy);
+        if (cw>0&&ch>0&&cx+cw<=w&&cy+ch<=h) addNoise(ctx,cx,cy,cw,ch,28);
+      }
+      row++;
+    }
+    return c;
+  }
+  function makePlaster(w, h) {
+    var c=document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx=c.getContext('2d');
+    var g=ctx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'#f1ebe0'); g.addColorStop(1,'#e6dfd1');
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    addNoise(ctx,0,0,w,h,12);
+    var n=Math.round(w*h/70);
+    for (var i=0;i<n;i++) {
+      var x=Math.random()*w, y=Math.random()*h;
+      var r=0.4+Math.random()*1.4;
+      var dark=Math.random()>0.55;
+      ctx.fillStyle = dark
+        ? 'rgba(0,0,0,'+(0.04+Math.random()*0.08)+')'
+        : 'rgba(255,255,255,'+(0.05+Math.random()*0.07)+')';
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    }
+    return c;
+  }
+  // Exposed aggregate concrete — visible stones, rough texture
+  // Polished/honed concrete — smooth, subtle sheen, minimal texture
+  function makeConcretePolished(w, h) {
+    var c = document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx = c.getContext('2d');
+    // Slightly warmer grey, near-uniform with very faint tonal shifts
+    var g = ctx.createLinearGradient(0,0,w*0.7,h);
+    g.addColorStop(0,'#c8c4be'); g.addColorStop(0.5,'#bdb9b4'); g.addColorStop(1,'#c2beb9');
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    addNoise(ctx,0,0,w,h,7);
+    // Subtle sheen — one or two reflective patches
+    for (var i=0; i<2; i++) {
+      var grd = ctx.createRadialGradient(w*0.3+Math.random()*w*0.4, h*0.2+Math.random()*h*0.4,0,w*0.5,h*0.5,w*0.8);
+      grd.addColorStop(0,'rgba(255,255,255,0.12)');
+      grd.addColorStop(1,'transparent');
+      ctx.fillStyle=grd; ctx.fillRect(0,0,w,h);
+    }
+    // Very fine surface pinholes from grinding
+    for (var j=0; j<Math.round(w*h/200); j++) {
+      ctx.fillStyle='rgba(0,0,0,'+(0.15+Math.random()*0.2)+')';
+      ctx.beginPath(); ctx.arc(Math.random()*w,Math.random()*h,0.6+Math.random()*0.8,0,Math.PI*2); ctx.fill();
+    }
+    return c;
+  }
+
+  // Weathered concrete — decades-old façade: formwork marks, rust bleeds,
+  // carbonation whitening, algae, water staining, surface cracking
+  function makeConcreteWeathered(w, h) {
+    var c = document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx = c.getContext('2d');
+
+    // --- Base concrete --- slightly darker and more uneven than fresh
+    var bg = ctx.createLinearGradient(0, 0, w*0.6, h);
+    bg.addColorStop(0, '#7e7870');
+    bg.addColorStop(0.35, '#868078');
+    bg.addColorStop(0.7, '#797068');
+    bg.addColorStop(1, '#706860');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    addNoise(ctx, 0, 0, w, h, 38);
+
+    // --- Board form marks --- vertical planks from formwork
+    // Real board-form concrete shows the wood grain texture and plank joints
+    var boardW = Math.round(w / (6 + Math.floor(Math.random()*4)));
+    for (var b = 0; b < w; b += boardW) {
+      var bw2 = boardW + (Math.random()-0.5)*8;
+      // Plank joint — recessed dark line
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.fillRect(b, 0, 2, h);
+      // Wood grain within plank — fine vertical lines
+      for (var wg = 0; wg < 12; wg++) {
+        var gx = b + 3 + Math.random()*(bw2-6);
+        var gy1 = Math.random()*h*0.3, gy2 = gy1 + h*0.2 + Math.random()*h*0.5;
+        ctx.strokeStyle = 'rgba(0,0,0,'+(0.02+Math.random()*0.04)+')';
+        ctx.lineWidth = 0.4 + Math.random()*0.6;
+        ctx.beginPath();
+        ctx.moveTo(gx, gy1);
+        // Slight waviness — real wood grain
+        ctx.bezierCurveTo(
+          gx+(Math.random()-0.5)*3, gy1+gy2*0.3,
+          gx+(Math.random()-0.5)*3, gy1+gy2*0.6,
+          gx+(Math.random()-0.5)*2, gy2
+        );
+        ctx.stroke();
+      }
+    }
+
+    // --- Horizontal form tie holes --- regular grid, recessed
+    var tieRows = 4 + Math.floor(Math.random()*3);
+    var tieCols = 5 + Math.floor(Math.random()*4);
+    for (var tr = 1; tr <= tieRows; tr++) {
+      for (var tc = 1; tc <= tieCols; tc++) {
+        var tx = (w / (tieCols+1)) * tc + (Math.random()-0.5)*20;
+        var ty = (h / (tieRows+1)) * tr + (Math.random()-0.5)*18;
+        // Recessed cone hole
+        var hg = ctx.createRadialGradient(tx, ty, 0, tx+1, ty+1, 10);
+        hg.addColorStop(0, 'rgba(0,0,0,0.75)');
+        hg.addColorStop(0.5, 'rgba(0,0,0,0.35)');
+        hg.addColorStop(1, 'transparent');
+        ctx.fillStyle = hg;
+        ctx.beginPath(); ctx.arc(tx, ty, 11, 0, Math.PI*2); ctx.fill();
+        // Rust bleed from tie wire
+        if (Math.random() > 0.4) {
+          var rlen = 20 + Math.random()*60;
+          var rg = ctx.createLinearGradient(tx, ty, tx+(Math.random()-0.5)*8, ty+rlen);
+          rg.addColorStop(0, 'rgba(140,80,30,0.45)');
+          rg.addColorStop(0.5, 'rgba(120,65,20,0.25)');
+          rg.addColorStop(1, 'transparent');
+          ctx.fillStyle = rg;
+          ctx.fillRect(tx-2, ty, 4+Math.random()*3, rlen);
+        }
+      }
+    }
+
+    // --- Carbonation whitening --- CO2 reacts with cement over years,
+    // bleaches patches on the surface, especially near cracks
+    for (var ca = 0; ca < 18; ca++) {
+      var cx2 = Math.random()*w, cy2 = Math.random()*h;
+      var cr = 20 + Math.random()*90;
+      var cg = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, cr);
+      cg.addColorStop(0, 'rgba(220,218,210,0.2)');
+      cg.addColorStop(1, 'transparent');
+      ctx.fillStyle = cg; ctx.fillRect(0, 0, w, h);
+    }
+
+    // --- Water stain streaks --- dark vertical runs from rain
+    for (var ws = 0; ws < 30; ws++) {
+      var wsx = Math.random()*w;
+      var wsy = Math.random()*h*0.35;
+      var wsh = h*0.15 + Math.random()*h*0.65;
+      var wsw = 1.5 + Math.random()*9;
+      var wsg = ctx.createLinearGradient(wsx, wsy, wsx+(Math.random()-0.5)*wsw, wsy+wsh);
+      wsg.addColorStop(0, 'transparent');
+      wsg.addColorStop(0.15, 'rgba(30,25,18,'+(0.12+Math.random()*0.2)+')');
+      wsg.addColorStop(0.7, 'rgba(30,25,18,'+(0.08+Math.random()*0.12)+')');
+      wsg.addColorStop(1, 'transparent');
+      ctx.fillStyle = wsg;
+      ctx.fillRect(wsx-wsw/2, wsy, wsw, wsh);
+    }
+
+    // --- Algae / organic growth --- green-grey patches, usually low on wall
+    for (var al = 0; al < 8; al++) {
+      var ax = Math.random()*w;
+      var ay = h*0.55 + Math.random()*h*0.45;  // lower half
+      var ar = 15 + Math.random()*55;
+      var ag = ctx.createRadialGradient(ax, ay, 0, ax, ay, ar);
+      ag.addColorStop(0, 'rgba(60,80,50,0.18)');
+      ag.addColorStop(0.5, 'rgba(55,75,45,0.08)');
+      ag.addColorStop(1, 'transparent');
+      ctx.fillStyle = ag; ctx.beginPath(); ctx.arc(ax, ay, ar, 0, Math.PI*2); ctx.fill();
+    }
+
+    // --- Hairline cracks --- random wandering lines
+    var crackCount = 3 + Math.floor(Math.random()*5);
+    for (var cr2 = 0; cr2 < crackCount; cr2++) {
+      var crx = Math.random()*w, cry = Math.random()*h;
+      ctx.strokeStyle = 'rgba(0,0,0,'+(0.25+Math.random()*0.3)+')';
+      ctx.lineWidth = 0.5 + Math.random()*1;
+      ctx.beginPath();
+      ctx.moveTo(crx, cry);
+      var steps = 8 + Math.floor(Math.random()*12);
+      for (var cs = 0; cs < steps; cs++) {
+        crx += (Math.random()-0.5)*30;
+        cry += (Math.random()-0.3)*22;  // bias downward
+        ctx.lineTo(crx, cry);
+      }
+      ctx.stroke();
+      // Crack shadow — dark on one side
+      ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    // Final grime layer
+    addNoise(ctx, 0, 0, w, h, 18);
+    return c;
+  }
+
+  // Heritage red brick — classic warm red, running bond
+  function makeBrickRed(w, h) { return makeBrickVariant(w, h, {hueBase:8, hueRange:16, satBase:42, satRange:22, litBase:26, litRange:18, mortarColor:'#9e9890'}); }
+
+  // Buff / sandstock brick — warm beige/cream, soft tones
+  function makeBrickBuff(w, h) { return makeBrickVariant(w, h, {hueBase:32, hueRange:14, satBase:22, satRange:16, litBase:52, litRange:18, mortarColor:'#c8c0b0'}); }
+
+  // Grey engineering brick — very low saturation, dark, uniform
+  function makeBrickGrey(w, h) { return makeBrickVariant(w, h, {hueBase:210, hueRange:20, satBase:5, satRange:6, litBase:28, litRange:12, mortarColor:'#7a7a7a'}); }
+
+  // Shared brick renderer with configurable colour range
+  function makeBrickVariant(w, h, opts) {
+    var c=document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx=c.getContext('2d');
+    ctx.fillStyle=opts.mortarColor; ctx.fillRect(0,0,w,h);
+    addNoise(ctx,0,0,w,h,10);
+    var bw=Math.round(w/10), bh=Math.round(bw*0.36), gap=Math.max(5, Math.round(bw*0.06));
+    var row=0;
+    for (var y=-bh; y<h+bh; y+=bh+gap) {
+      var off=(row%2)*((bw+gap)/2);
+      for (var x=-bw; x<w+bw; x+=bw+gap) {
+        var px=x+off;
+        var hue=opts.hueBase+Math.random()*opts.hueRange;
+        var sat=opts.satBase+Math.random()*opts.satRange;
+        var lit=opts.litBase+Math.random()*opts.litRange;
+        ctx.fillStyle='hsl('+hue+','+sat+'%,'+lit+'%)';
+        ctx.fillRect(px+1,y+1,bw-2,bh-2);
+        // Gradient shading per brick (light top, dark bottom)
+        var grd=ctx.createLinearGradient(0,y,0,y+bh);
+        grd.addColorStop(0,'rgba(255,255,255,0.12)');
+        grd.addColorStop(0.6,'rgba(0,0,0,0)');
+        grd.addColorStop(1,'rgba(0,0,0,0.18)');
+        ctx.fillStyle=grd; ctx.fillRect(px+1,y+1,bw-2,bh-2);
+        // Mortar recessed shadow
+        ctx.fillStyle='rgba(0,0,0,0.12)';
+        ctx.fillRect(px,y,bw,1); ctx.fillRect(px,y,1,bh);
+        var cx2=Math.max(0,px+1), cy2=Math.max(0,y+1);
+        var cw2=Math.min(bw-2,w-cx2), ch2=Math.min(bh-2,h-cy2);
+        if (cw2>0&&ch2>0&&cx2+cw2<=w&&cy2+ch2<=h) addNoise(ctx,cx2,cy2,cw2,ch2,20);
+      }
+      row++;
+    }
+    return c;
+  }
+
+  // Exposed aggregate concrete — realistic river stones packed in cement paste
+  function makeConcreteRibbed(w, h) {
+    var c = document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx = c.getContext('2d');
+
+    // ── Base ── cool grey, slightly uneven across the wall ───────────────
+    var base = ctx.createLinearGradient(0, 0, w, h);
+    base.addColorStop(0,   '#b6b9bc');
+    base.addColorStop(0.5, '#acafb2');
+    base.addColorStop(1,   '#a4a7aa');
+    ctx.fillStyle = base; ctx.fillRect(0, 0, w, h);
+
+    // Minimal surface noise — fine concrete grain
+    addNoise(ctx, 0, 0, w, h, 6);
+
+    // ── Vertical board-formed panels ─────────────────────────────────────
+    // Cast in place with vertical timber boards on edge. Each board leaves
+    // its own panel with subtle tonal variation and a recessed joint.
+    var numBoards = 5;
+    var boardW = w / numBoards;
+    var shifts = [5, -7, 8, -5, 4];
+    for (var bi = 0; bi < numBoards; bi++) {
+      var bx  = Math.round(bi * boardW);
+      var bw2 = Math.round((bi + 1) * boardW) - bx;
+      var v   = Math.round(180 + shifts[bi]);
+      ctx.fillStyle = 'rgba('+v+','+v+','+v+',0.16)';
+      ctx.fillRect(bx, 0, bw2, h);
+
+      // Vertical joint: dark recess + slim highlight on the right edge
+      if (bi > 0) {
+        ctx.fillStyle = 'rgba(0,0,0,0.24)';
+        ctx.fillRect(bx, 0, 2, h);
+        ctx.fillStyle = 'rgba(255,255,255,0.10)';
+        ctx.fillRect(bx + 2, 0, 1, h);
+      }
+    }
+
+    // ── Subtle vertical timber grain ─────────────────────────────────────
+    // Fine vertical lines suggest the wood-grain imprint of timber boards.
+    // Sparse, varied length, subtle alpha — reads as texture not as marks.
+    var grainCount = Math.round(w / 8);
+    for (var gi = 0; gi < grainCount; gi++) {
+      var gx = Math.random() * w;
+      var gAlpha = 0.025 + Math.random() * 0.035;
+      var dark = Math.random() > 0.55;
+      ctx.strokeStyle = dark
+        ? 'rgba(0,0,0,'+gAlpha+')'
+        : 'rgba(255,255,255,'+(gAlpha*0.7)+')';
+      ctx.lineWidth = 0.5 + Math.random() * 0.6;
+      ctx.beginPath();
+      var sy = Math.random() * h * 0.4;
+      var ey = sy + h * 0.3 + Math.random() * h * 0.5;
+      // Slight horizontal drift — natural grain isn't perfectly straight
+      ctx.moveTo(gx, sy);
+      ctx.bezierCurveTo(
+        gx + (Math.random()-0.5)*1.5, sy + (ey-sy)*0.33,
+        gx + (Math.random()-0.5)*1.5, sy + (ey-sy)*0.66,
+        gx + (Math.random()-0.5)*1.5, ey
+      );
+      ctx.stroke();
+    }
+
+    return c;
+  }
+
+
+  // Limestone — authentic cut ashlar blocks, cream/grey/buff with fossil-like texture
+  function makeLimestone(w, h) {
+    var c=document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx=c.getContext('2d');
+
+    // Background — uneven limestone base colour
+    var bg = ctx.createLinearGradient(0,0,w,h);
+    bg.addColorStop(0,'#d2cabb'); bg.addColorStop(0.5,'#c8bfaa'); bg.addColorStop(1,'#cec5b0');
+    ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+    addNoise(ctx,0,0,w,h,20);
+
+    // Block layout — irregular courses like real ashlar
+    var courseH = Math.round(h/5.5);
+    var y=0;
+    while (y < h) {
+      var ch = Math.round(courseH*(0.75+Math.random()*0.5));
+      var gap = 7+Math.round(Math.random()*4);
+      var x=0;
+      while (x < w) {
+        var bw2 = Math.round((w/4)*(0.6+Math.random()*0.9));
+        // Each block has its own colour variation
+        var hue=38+Math.random()*10, sat=7+Math.random()*10, lit=60+Math.random()*16;
+        var grd = ctx.createLinearGradient(x,y,x+bw2,y+ch);
+        grd.addColorStop(0,'hsl('+hue+','+(sat+3)+'%,'+(lit+4)+'%)');
+        grd.addColorStop(1,'hsl('+hue+','+sat+'%,'+(lit-5)+'%)');
+        ctx.fillStyle=grd;
+        ctx.fillRect(x+gap/2,y+gap/2,bw2-gap,ch-gap);
+
+        // Sediment banding — horizontal lines within each block
+        var bandCount = 2+Math.floor(Math.random()*5);
+        for (var bi=0; bi<bandCount; bi++) {
+          var by2 = y+gap/2 + ((ch-gap)/(bandCount+1))*(bi+1) + (Math.random()-0.5)*3;
+          ctx.strokeStyle = Math.random()>0.5
+            ? 'rgba(0,0,0,'+(0.04+Math.random()*0.07)+')'
+            : 'rgba(255,255,255,'+(0.05+Math.random()*0.08)+')';
+          ctx.lineWidth = 0.4+Math.random()*0.9;
+          ctx.beginPath();
+          ctx.moveTo(x+gap/2+Math.random()*10, by2);
+          ctx.lineTo(x+bw2-gap-Math.random()*10, by2);
+          ctx.stroke();
+        }
+        // Fossil/shell inclusions (random small ovals)
+        if (Math.random()>0.7) {
+          var fx=x+gap+Math.random()*(bw2-gap*3), fy=y+gap+Math.random()*(ch-gap*3);
+          ctx.strokeStyle='rgba(0,0,0,0.12)';
+          ctx.lineWidth=0.8;
+          ctx.beginPath();
+          ctx.ellipse(fx,fy,4+Math.random()*8,2+Math.random()*4,Math.random()*Math.PI,0,Math.PI*2);
+          ctx.stroke();
+        }
+        // Tool marks — chisel pattern at block edges
+        ctx.strokeStyle='rgba(0,0,0,0.18)';
+        ctx.lineWidth=1.2;
+        ctx.strokeRect(x+gap/2+0.5,y+gap/2+0.5,bw2-gap-1,ch-gap-1);
+        // Top highlight (freshly cut face)
+        ctx.fillStyle='rgba(255,255,255,0.08)';
+        ctx.fillRect(x+gap/2,y+gap/2,bw2-gap,3);
+        // Noise per block
+        var bx=Math.max(0,x+gap/2), by3=Math.max(0,y+gap/2);
+        var bww=Math.min(bw2-gap,w-bx), bhh=Math.min(ch-gap,h-by3);
+        if (bww>0&&bhh>0) addNoise(ctx,bx,by3,bww,bhh,14);
+        x+=bw2;
+      }
+      y+=ch;
+    }
+    // Overall weathering wash
+    ctx.fillStyle='rgba(0,0,0,0.04)';
+    for (var wi2=0; wi2<6; wi2++) {
+      var wx=Math.random()*w, wy=Math.random()*h, wr=40+Math.random()*100;
+      var wg=ctx.createRadialGradient(wx,wy,0,wx,wy,wr);
+      wg.addColorStop(0,'rgba(0,0,0,0.08)'); wg.addColorStop(1,'transparent');
+      ctx.fillStyle=wg; ctx.beginPath(); ctx.arc(wx,wy,wr,0,Math.PI*2); ctx.fill();
+    }
+    return c;
+  }
+
+  // Sandstone — deeply stratified, warm iron-oxide layers, bush-hammered face
+  function makeSandstone(w, h) {
+    var c=document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx=c.getContext('2d');
+
+    // Rich layered base
+    var bg=ctx.createLinearGradient(0,0,0,h);
+    bg.addColorStop(0,'#c4904a'); bg.addColorStop(0.3,'#b87e3a'); bg.addColorStop(0.7,'#c89050'); bg.addColorStop(1,'#ae7832');
+    ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+    addNoise(ctx,0,0,w,h,30);
+
+    // Stratification — wavy horizontal bands across the whole surface
+    for (var si=0; si<30; si++) {
+      var sy2=Math.random()*h;
+      var ironRich=Math.random()>0.55;
+      ctx.strokeStyle = ironRich
+        ? 'rgba(140,70,20,'+(0.12+Math.random()*0.18)+')'  // iron oxide band
+        : 'rgba(220,190,130,'+(0.08+Math.random()*0.12)+')'; // pale silica band
+      ctx.lineWidth=0.6+Math.random()*2.5;
+      ctx.beginPath();
+      ctx.moveTo(0,sy2);
+      // Wavy — natural geological undulation
+      for (var sx2=0; sx2<w; sx2+=40) {
+        ctx.lineTo(sx2, sy2+(Math.random()-0.5)*6);
+      }
+      ctx.lineTo(w,sy2);
+      ctx.stroke();
+    }
+
+    // Block courses
+    var bh2=Math.round(h/5), gp=8;
+    var row2=0;
+    for (var y2=0; y2<h; y2+=bh2+gp) {
+      var x2=0, off2=(row2%2)*Math.round(w/7);
+      x2=-off2;
+      while (x2<w) {
+        var bwx=Math.round((w/5)*(0.7+Math.random()*0.7));
+        // Bush-hammered texture on face — fine pitting
+        var blockCtx = ctx;
+        var blit=44+Math.random()*18, bsat=30+Math.random()*20;
+        var bg2=ctx.createLinearGradient(x2,y2,x2+bwx,y2+bh2);
+        bg2.addColorStop(0,'hsl(30,'+bsat+'%,'+(blit+6)+'%)');
+        bg2.addColorStop(1,'hsl(28,'+bsat+'%,'+(blit-4)+'%)');
+        ctx.fillStyle=bg2;
+        ctx.fillRect(x2+gp/2,y2+gp/2,bwx-gp,bh2-gp);
+
+        // Bush-hammered pitting — tiny dark and light dots over the face
+        var pitCount=Math.round((bwx-gp)*(bh2-gp)/28);
+        for (var pi=0; pi<pitCount; pi++) {
+          var px2=x2+gp/2+Math.random()*(bwx-gp);
+          var py2=y2+gp/2+Math.random()*(bh2-gp);
+          ctx.fillStyle=Math.random()>0.5
+            ?'rgba(0,0,0,'+(0.1+Math.random()*0.15)+')'
+            :'rgba(255,255,255,'+(0.08+Math.random()*0.1)+')';
+          ctx.beginPath(); ctx.arc(px2,py2,0.4+Math.random()*1.2,0,Math.PI*2); ctx.fill();
+        }
+        // Iron-oxide stain streaks per block
+        if (Math.random()>0.5) {
+          var stx=x2+gp+Math.random()*(bwx-gp*3);
+          var stg=ctx.createLinearGradient(stx,y2+gp/2,stx,y2+bh2-gp);
+          stg.addColorStop(0,'transparent');
+          stg.addColorStop(0.4,'rgba(140,70,15,'+(0.1+Math.random()*0.14)+')');
+          stg.addColorStop(1,'transparent');
+          ctx.fillStyle=stg;
+          ctx.fillRect(stx,y2+gp/2,2+Math.random()*4,bh2-gp);
+        }
+        // Joint shadow
+        ctx.strokeStyle='rgba(60,40,20,0.25)'; ctx.lineWidth=gp;
+        ctx.strokeRect(x2+gp/2,y2+gp/2,bwx-gp,bh2-gp);
+        // Top cut edge highlight
+        ctx.fillStyle='rgba(255,240,200,0.14)';
+        ctx.fillRect(x2+gp/2,y2+gp/2,bwx-gp,2);
+        x2+=bwx;
+      }
+      row2++;
+    }
+    return c;
+  }
+
+  // Old brick — century-old weathered red brick, mortar losses, staining, colour variation
+  function makeBrickOld(w, h) {
+    var c = document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx = c.getContext('2d');
+
+    // ── Mortar base ────────────────────────────────────────────────────────
+    // Old mortar is not uniform — lime putty yellows, stains vary, cracks grey
+    var mortarBase = ctx.createLinearGradient(0, 0, w, h);
+    mortarBase.addColorStop(0,   '#6e6658');
+    mortarBase.addColorStop(0.3, '#7a7060');
+    mortarBase.addColorStop(0.7, '#68625a');
+    mortarBase.addColorStop(1,   '#726858');
+    ctx.fillStyle = mortarBase; ctx.fillRect(0, 0, w, h);
+    addNoise(ctx, 0, 0, w, h, 30);
+
+    // Large-scale mortar tonal variation — lime-rich patches are paler
+    for (var mp = 0; mp < 20; mp++) {
+      var mx = Math.random()*w, my = Math.random()*h;
+      var mr = 20 + Math.random()*80;
+      var mg = ctx.createRadialGradient(mx, my, 0, mx, my, mr);
+      mg.addColorStop(0, Math.random() > 0.5
+        ? 'rgba(200,190,165,0.12)'   // pale lime-rich mortar
+        : 'rgba(20,15,8,0.1)');      // dark stained patch
+      mg.addColorStop(1, 'transparent');
+      ctx.fillStyle = mg; ctx.fillRect(0, 0, w, h);
+    }
+
+    // ── Brick geometry ─────────────────────────────────────────────────────
+    // Real old bricks are hand-made and vary in size — not perfectly uniform
+    var nomBW = Math.round(w / 9.5);
+    var nomBH = Math.round(nomBW * 0.37);
+    var gp    = Math.max(6, Math.round(nomBW * 0.075));
+
+    // Extended fired-brick colour palette — pre-industrial kilns had huge variation
+    // Ranges: dark vitrified (kiln bottom) → mid red → salmon → buff multi
+    var palette = [
+      // Vitrified / dark
+      {h:4,   s:65, l:18}, {h:8,   s:58, l:20}, {h:2,   s:55, l:16},
+      {h:15,  s:48, l:22},
+      // Classic red
+      {h:8,   s:62, l:26}, {h:12,  s:55, l:30}, {h:6,   s:60, l:28},
+      {h:10,  s:50, l:32}, {h:14,  s:45, l:34},
+      // Warm mid-red / brown
+      {h:18,  s:48, l:30}, {h:20,  s:42, l:33}, {h:16,  s:52, l:28},
+      // Salmon / light
+      {h:22,  s:38, l:40}, {h:26,  s:32, l:44}, {h:20,  s:35, l:38},
+      // Multi-buff / cream flashed
+      {h:32,  s:28, l:50}, {h:28,  s:22, l:46},
+    ];
+
+    var row = 0;
+    for (var y = -nomBH; y < h + nomBH; y += nomBH + gp) {
+      // Each row has a slight vertical position jitter — hand-laid imprecision
+      var rowY = y + Math.round((Math.random()-0.5)*2);
+      // Running bond offset — alternate rows
+      var offset = (row % 2) * Math.round((nomBW + gp) / 2);
+      var x = -nomBW + offset;
+
+      while (x < w + nomBW) {
+        // Each brick has individual size variation ±8% — hand-made bricks
+        var bw2 = Math.round(nomBW * (0.92 + Math.random()*0.16));
+        var bh2 = Math.round(nomBH * (0.92 + Math.random()*0.12));
+        var px  = Math.round(x);
+        var py  = Math.round(rowY);
+
+        // Skip invisible bricks fully outside canvas
+        if (px + bw2 < 0 || px > w || py + bh2 < 0 || py > h) {
+          x += bw2 + gp; continue;
+        }
+
+        var pal = palette[Math.floor(Math.random() * palette.length)];
+        // Per-brick colour variation within the range
+        var hv = pal.h + (Math.random()-0.5) * 10;
+        var sv = Math.max(5, pal.s + (Math.random()-0.5) * 16);
+        var lv = pal.l + (Math.random()-0.5) * 8;
+
+        // ── Base brick face ──
+        ctx.fillStyle = 'hsl('+hv+','+sv+'%,'+lv+'%)';
+        ctx.fillRect(px, py, bw2, bh2);
+
+        // ── Kiln firing gradient ──
+        // Real bricks fired in a clamp kiln: darker towards the outer edges
+        // (more exposed to flame), lighter near centre (more even heat)
+        var fg = ctx.createRadialGradient(
+          px + bw2*0.5, py + bh2*0.45,  bw2*0.1,
+          px + bw2*0.5, py + bh2*0.5,   bw2*1.1
+        );
+        fg.addColorStop(0,   'rgba(255,255,255,0.06)');
+        fg.addColorStop(0.5, 'rgba(0,0,0,0.04)');
+        fg.addColorStop(1,   'rgba(0,0,0,0.18)');
+        ctx.fillStyle = fg; ctx.fillRect(px, py, bw2, bh2);
+
+        // ── Flash marks ── (dark blotch from flame contact, ~30% of bricks)
+        if (Math.random() > 0.70) {
+          var fcount = 1 + Math.floor(Math.random()*2);
+          for (var fi = 0; fi < fcount; fi++) {
+            var fx2 = px + bw2*(0.05 + Math.random()*0.85);
+            var fy2 = py + bh2*(0.05 + Math.random()*0.85);
+            var fr2 = bw2*(0.15 + Math.random()*0.28);
+            var fgrd = ctx.createRadialGradient(fx2, fy2, 0, fx2, fy2, fr2);
+            fgrd.addColorStop(0, 'rgba(10,5,2,'+(0.25+Math.random()*0.3)+')');
+            fgrd.addColorStop(0.6, 'rgba(20,10,4,'+(0.08+Math.random()*0.12)+')');
+            fgrd.addColorStop(1, 'transparent');
+            ctx.fillStyle = fgrd; ctx.fillRect(px, py, bw2, bh2);
+          }
+        }
+
+        // ── Lime bloom / efflorescence ── (white salt crystals, ~20%)
+        if (Math.random() > 0.80) {
+          var ex2 = px + bw2*(0.1+Math.random()*0.7);
+          var ey2 = py + bh2*(0.1+Math.random()*0.7);
+          var erg = ctx.createRadialGradient(ex2, ey2, 0, ex2, ey2, bw2*0.4);
+          erg.addColorStop(0,   'rgba(225,220,205,0.45)');
+          erg.addColorStop(0.5, 'rgba(210,205,188,0.2)');
+          erg.addColorStop(1,   'transparent');
+          ctx.fillStyle = erg; ctx.fillRect(px, py, bw2, bh2);
+        }
+
+        // ── Iron staining ── orange-brown bleed on ~15%
+        if (Math.random() > 0.85) {
+          var ix = px + bw2*(0.3+Math.random()*0.4);
+          var iy = py;
+          var ilen = bh2 * (0.4 + Math.random()*0.7);
+          var ig = ctx.createLinearGradient(ix, iy, ix, iy+ilen);
+          ig.addColorStop(0, 'rgba(160,90,30,'+(0.18+Math.random()*0.22)+')');
+          ig.addColorStop(1, 'transparent');
+          ctx.fillStyle = ig;
+          ctx.fillRect(ix-1, iy, 2+Math.random()*3, ilen);
+        }
+
+        // ── Surface spalling ── ~10% — exposed lighter clay body
+        if (Math.random() > 0.90) {
+          ctx.save();
+          ctx.beginPath();
+          var spx = px + 3 + Math.random()*(bw2-8);
+          var spy = py + 2 + Math.random()*(bh2-6);
+          var spw = 4 + Math.random()*12, sph = 3 + Math.random()*7;
+          ctx.ellipse(spx, spy, spw, sph, Math.random()*Math.PI, 0, Math.PI*2);
+          ctx.fillStyle = 'hsl('+Math.round(hv+8)+','+Math.round(sv*0.5)+'%,'+Math.round(lv+22)+'%)';
+          ctx.fill();
+          // Spall edge — dark shadow on bottom-right
+          ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // ── Chipped corners ── ~18%
+        if (Math.random() > 0.82) {
+          var corner = Math.floor(Math.random()*4);
+          var csz = 3 + Math.random()*7;
+          ctx.save();
+          ctx.beginPath();
+          if (corner === 0) { ctx.moveTo(px,py); ctx.lineTo(px+csz,py); ctx.lineTo(px,py+csz*0.7); }
+          else if (corner === 1) { ctx.moveTo(px+bw2,py); ctx.lineTo(px+bw2-csz,py); ctx.lineTo(px+bw2,py+csz*0.7); }
+          else if (corner === 2) { ctx.moveTo(px,py+bh2); ctx.lineTo(px+csz,py+bh2); ctx.lineTo(px,py+bh2-csz*0.7); }
+          else { ctx.moveTo(px+bw2,py+bh2); ctx.lineTo(px+bw2-csz,py+bh2); ctx.lineTo(px+bw2,py+bh2-csz*0.7); }
+          ctx.closePath();
+          // Chip exposes mortar/clay beneath
+          ctx.fillStyle = 'hsl('+Math.round(hv-5)+','+Math.round(sv*0.6)+'%,'+Math.round(lv+14)+'%)';
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // ── Per-brick surface noise ──
+        var nx2 = Math.max(0, px), ny2 = Math.max(0, py);
+        var nw2 = Math.min(bw2, w - nx2), nh2 = Math.min(bh2, h - ny2);
+        addNoise(ctx, nx2, ny2, nw2, nh2, 25);
+
+        // ── Mortar joint shadow ── deep recess on top and left edges
+        // Top horizontal joint
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(px, py, bw2, Math.min(3, gp*0.5));
+        // Left vertical joint
+        ctx.fillRect(px, py, Math.min(2, gp*0.4), bh2);
+        // Bottom highlight (light bounce from mortar below)
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        ctx.fillRect(px, py+bh2-2, bw2, 2);
+
+        // ── Mortar loss ── crumbled/missing mortar exposing dark void, ~14%
+        if (Math.random() > 0.86) {
+          var mlx = px + Math.random()*(bw2*0.6);
+          var mlw2 = 4 + Math.random()*(bw2*0.4);
+          // Top joint loss
+          ctx.fillStyle = 'rgba(0,0,0,0.55)';
+          ctx.fillRect(mlx, py - gp*0.6, mlw2, Math.round(gp*0.7));
+        }
+        if (Math.random() > 0.90) {
+          // Side joint loss
+          ctx.fillStyle = 'rgba(0,0,0,0.5)';
+          ctx.fillRect(px - gp*0.5, py + Math.random()*(bh2*0.5), Math.round(gp*0.6), bh2*0.3 + Math.random()*bh2*0.4);
+        }
+
+        x += bw2 + gp;
+      }
+      row++;
+    }
+
+    // ── Global weathering overlays ──────────────────────────────────────────
+
+    // Soot / grime bands — heavier at sill lines and base
+    var soot = ctx.createLinearGradient(0, 0, 0, h);
+    soot.addColorStop(0,   'rgba(10,8,5,0.12)');
+    soot.addColorStop(0.15,'rgba(10,8,5,0.05)');
+    soot.addColorStop(0.8, 'rgba(10,8,5,0.04)');
+    soot.addColorStop(1,   'rgba(10,8,5,0.14)');
+    ctx.fillStyle = soot; ctx.fillRect(0, 0, w, h);
+
+    // Long water bleed streaks — full height, very narrow, semi-transparent
+    for (var ws = 0; ws < 20; ws++) {
+      var wsx = Math.random() * w;
+      var wsy = Math.random() * h * 0.2;
+      var wsh = h * 0.3 + Math.random() * h * 0.7;
+      var wsw2 = 1 + Math.random() * 7;
+      var wsg = ctx.createLinearGradient(wsx, wsy, wsx+(Math.random()-0.5)*6, wsy+wsh);
+      wsg.addColorStop(0,    'transparent');
+      wsg.addColorStop(0.1,  'rgba(25,18,10,'+(0.1+Math.random()*0.2)+')');
+      wsg.addColorStop(0.6,  'rgba(25,18,10,'+(0.06+Math.random()*0.1)+')');
+      wsg.addColorStop(1,    'transparent');
+      ctx.fillStyle = wsg;
+      ctx.fillRect(wsx - wsw2/2, wsy, wsw2, wsh);
+    }
+
+    // Algae / lichen patches — low and in sheltered areas
+    for (var al = 0; al < 10; al++) {
+      var ax = Math.random() * w;
+      var ay = h * 0.5 + Math.random() * h * 0.5;
+      var ar = 8 + Math.random() * 35;
+      var ag = ctx.createRadialGradient(ax, ay, 0, ax, ay, ar);
+      var greenish = Math.random() > 0.5;
+      ag.addColorStop(0, greenish
+        ? 'rgba(58,72,42,0.20)'    // algae green
+        : 'rgba(90,88,78,0.15)'); // lichen grey
+      ag.addColorStop(1, 'transparent');
+      ctx.fillStyle = ag; ctx.beginPath(); ctx.arc(ax, ay, ar, 0, Math.PI*2); ctx.fill();
+    }
+
+    // Final grime noise over everything
+    addNoise(ctx, 0, 0, w, h, 14);
+    return c;
+  }
+
+  // Sand float render — exterior texture coat, slightly rough and grainy
+  function makeRenderSand(w, h) {
+    var c=document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx=c.getContext('2d');
+    var g=ctx.createLinearGradient(0,0,w*0.5,h);
+    g.addColorStop(0,'#d4cfc6'); g.addColorStop(1,'#c8c2b8');
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    addNoise(ctx,0,0,w,h,28);
+    // Sand particles — coarser stipple than smooth plaster
+    var n=Math.round(w*h/25);
+    for (var i=0; i<n; i++) {
+      var x=Math.random()*w, y=Math.random()*h;
+      var r=0.4+Math.random()*2.2;
+      ctx.fillStyle=Math.random()>0.5
+        ?'rgba(0,0,0,'+(0.06+Math.random()*0.12)+')'
+        :'rgba(255,255,255,'+(0.06+Math.random()*0.10)+')';
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    }
+    // Float lines — horizontal tool marks from float application
+    for (var j=0; j<Math.round(h/4); j++) {
+      var fy=Math.random()*h;
+      ctx.strokeStyle='rgba(0,0,0,'+(0.02+Math.random()*0.03)+')';
+      ctx.lineWidth=0.5+Math.random()*1;
+      ctx.beginPath(); ctx.moveTo(0,fy); ctx.lineTo(w,fy); ctx.stroke();
+    }
+    return c;
+  }
+
+  function generateSubstrate(type, w, h) {
+    switch (type) {
+      case 'concrete_ribbed': return makeConcreteRibbed(w, h);
+      case 'concrete_polished':  return makeConcretePolished(w, h);
+      case 'concrete_weathered': return makeConcreteWeathered(w, h);
+      case 'brick_red':          return makeBrickRed(w, h);
+      case 'brick_buff':         return makeBrickBuff(w, h);
+      case 'brick_grey':         return makeBrickGrey(w, h);
+      case 'brick_old':          return makeBrickOld(w, h);
+      case 'limestone':          return makeLimestone(w, h);
+      case 'sandstone':          return makeSandstone(w, h);
+      case 'render_sand':        return makeRenderSand(w, h);
+      case 'plasterboard':       return makePlaster(w, h);
+      default:                   return makeConcrete(w, h);
+    }
+  }
+
+  // ---------------- STATE ----------------
+  // Try to hydrate saved colours from localStorage (persists across sessions)
+  var _savedFromStorage = [];
+  try {
+    var raw = localStorage.getItem('keim-saved-colours');
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) _savedFromStorage = parsed.slice(0, 30);
+    }
+  } catch (e) { /* localStorage unavailable — ignore */ }
+
+  var state = {
+    image: null,         // HTMLImageElement (or HTMLCanvasElement) of the substrate
+    imageW: 0, imageH: 0,
+    color: '#9e968b',
+    dilutionIdx: 8,      // default to middle of the scale (1:1)
+    finish: 'multiply',
+    appMode: 'full',     // 'full' | 'mask'
+    tool: 'brush',       // 'brush' | 'roller' | 'eraser' | 'eyedropper'
+    brushSize: 50,
+    brushOpacityIdx: DILUTIONS.length - 1,  // default to 1:0 (full strength)
+    sliderPos: 50,       // %
+    sliderOrientation: 'vertical',  // 'horizontal' | 'vertical'
+    viewMode: 'slider',  // 'slider' | 'overlay'
+    showAdvanced: false,
+    sampling: false,     // when true, next click on canvas samples a colour
+    samples: [],         // [{hex, x, y, matches}] persistent sample history
+    saved: _savedFromStorage,  // user-saved colours [{hex, label?}]
+    paletteSearch: '',
+    dominant: [],        // [{hex, rgb}, ...] auto-extracted from the loaded image
+    wallMask: null,      // canvas with alpha-encoded wall-likeness (null if disabled)
+    wallOnly: false,     // legacy: only used for full-mode masking
+    seedMask: null,      // when set, next paintImage seeds the brush canvas with this
+    paintHintShown: false  // true after we've shown the paint-mode hint banner once
+  };
+  function persistSaved() {
+    try { localStorage.setItem('keim-saved-colours', JSON.stringify(state.saved)); }
+    catch (e) { /* no-op */ }
+  }
+  // Convenience getters
+  function dilutionValue() { return DILUTIONS[state.dilutionIdx].value; }
+  function dilutionLabel() { return DILUTIONS[state.dilutionIdx].label; }
+
+  var refs = {};
+  var isDrawing = false, lastPos = null;
+
+  // Persistent offscreen canvas that holds painted brush/roller strokes across
+  // re-renders. render() creates new DOM canvas elements each time, which
+  // destroys any painted content — so we snapshot the mask before render and
+  // restore it afterwards.
+  var _persistentMask = document.createElement('canvas');
+  var _hasPersistentContent = false;
+
+  function saveMaskContent() {
+    if (!refs.maskCanvas || refs.maskCanvas.width === 0) return;
+    if (_persistentMask.width !== refs.maskCanvas.width ||
+        _persistentMask.height !== refs.maskCanvas.height) {
+      _persistentMask.width = refs.maskCanvas.width;
+      _persistentMask.height = refs.maskCanvas.height;
+    }
+    var pctx = _persistentMask.getContext('2d');
+    pctx.clearRect(0, 0, _persistentMask.width, _persistentMask.height);
+    pctx.drawImage(refs.maskCanvas, 0, 0);
+    _hasPersistentContent = true;
+  }
+
+  function restoreMaskContent() {
+    if (!_hasPersistentContent || !refs.maskCanvas) return;
+    if (refs.maskCanvas.width === 0 || refs.maskCanvas.height === 0) return;
+    var mctx = refs.maskCanvas.getContext('2d');
+    // Only restore if dimensions match (different image = fresh start)
+    if (_persistentMask.width === refs.maskCanvas.width &&
+        _persistentMask.height === refs.maskCanvas.height) {
+      mctx.clearRect(0, 0, refs.maskCanvas.width, refs.maskCanvas.height);
+      mctx.drawImage(_persistentMask, 0, 0);
+    }
+  }
+  var isDraggingSlider = false;
+
+  // ---------------- RENDER ----------------
+  function render() {
+    // Save painted brush/roller content before DOM rebuild destroys the canvases
+    if (state.appMode === 'mask') saveMaskContent();
+
+    var app = $('#app');
+    app.innerHTML = '';
+    app.appendChild(renderHeader());
+    var stage = ce('main', {cls:'stage'});
+    if (!state.image) {
+      stage.appendChild(renderLanding());
+    } else {
+      stage.appendChild(renderVisualiser());
+      stage.appendChild(renderBottomBar());
+    }
+    app.appendChild(stage);
+
+    if (state.image) {
+      requestAnimationFrame(function() {
+        updateStageSize();
+        paintImage();
+        // Restore painted strokes after paintImage initialises the new canvas
+        if (state.appMode === 'mask') restoreMaskContent();
+        if (state.viewMode === 'slider') updateSliderUI();
+      });
+    }
+  }
+
+  function renderHeader() {
+    var header = ce('header', {cls:'topbar'});
+    var brand = ce('div', {cls:'brand'});
+    brand.appendChild(ce('div', {cls:'brand-mark', text:'K'}));
+    var brandText = ce('div');
+    brandText.appendChild(ce('div', {cls:'brand-title', text:'Colour Visualiser'}));
+    brandText.appendChild(ce('div', {cls:'brand-sub', text:'KEIM Concretal-Lasur'}));
+    brand.appendChild(brandText);
+    header.appendChild(brand);
+
+    if (state.image) {
+      var actions = ce('div', {cls:'top-actions'});
+      actions.appendChild(ce('button', {
+        cls:'btn',
+        html: svgUse('i-rotate', 14) + '<span class="lbl">Change wall</span>',
+        on:{click: resetToLanding}
+      }));
+      actions.appendChild(ce('button', {
+        cls:'btn btn-primary',
+        html: svgUse('i-download', 14) + '<span class="lbl">Save</span>',
+        on:{click: downloadResult}
+      }));
+      header.appendChild(actions);
+    }
+    return header;
+  }
+
+  function renderLanding() {
+    var wrap = ce('div', {cls:'landing'});
+    var inner = ce('div', {cls:'landing-inner'});
+    inner.appendChild(ce('h2', {text:'Pick a wall to start'}));
+    var grid = ce('div', {cls:'substrate-grid'});
+
+    SUBSTRATES.forEach(function(s) {
+      var tile = ce('button', {cls:'tile', on:{click: function() { loadSubstrate(s.id); }}});
+      var canvas = ce('canvas', {cls:'tile-canvas', attr:{width:480, height:320}});
+      tile.appendChild(canvas);
+      var body = ce('div', {cls:'tile-body'});
+      body.appendChild(ce('div', {cls:'tile-label', text:s.label}));
+      body.appendChild(ce('div', {cls:'tile-sub', text:s.subtitle}));
+      tile.appendChild(body);
+      grid.appendChild(tile);
+      // Generate preview
+      requestAnimationFrame(function() {
+        var tex = generateSubstrate(s.id, 480, 320);
+        canvas.getContext('2d').drawImage(tex, 0, 0);
+      });
+    });
+
+    // Upload tile
+    var up = ce('div', {cls:'tile tile-upload'});
+    var upInner = ce('div', {cls:'tile-upload-inner', html: svgUse('i-upload', 28) + '<small>Drop or click to upload</small>'});
+    up.appendChild(upInner);
+    var upBody = ce('div', {cls:'tile-body'});
+    upBody.appendChild(ce('div', {cls:'tile-label', text:'Your photo'}));
+    upBody.appendChild(ce('div', {cls:'tile-sub', text:'Project image · jpg / png'}));
+    up.appendChild(upBody);
+    var fileIn = ce('input', {attr:{type:'file', accept:'image/*'}, style:{display:'none'}});
+    fileIn.addEventListener('change', function(e) {
+      if (e.target.files && e.target.files[0]) loadFile(e.target.files[0]);
+    });
+    up.appendChild(fileIn);
+    up.addEventListener('click', function() { fileIn.click(); });
+    up.addEventListener('dragover', function(e) { e.preventDefault(); up.classList.add('drag'); });
+    up.addEventListener('dragleave', function() { up.classList.remove('drag'); });
+    up.addEventListener('drop', function(e) {
+      e.preventDefault();
+      up.classList.remove('drag');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+    });
+    grid.appendChild(up);
+    inner.appendChild(grid);
+    wrap.appendChild(inner);
+    return wrap;
+  }
+
+  function renderVisualiser() {
+    var area = ce('div', {cls:'vis-area'});
+    var stage = ce('div', {cls:'stage-wrap ratio-stage'});
+
+    var imgCanvas = ce('canvas', {cls:'image'});
+    var maskCanvas = ce('canvas', {cls:'mask'});
+    stage.appendChild(imgCanvas);
+    stage.appendChild(maskCanvas);
+    refs.imgCanvas = imgCanvas;
+    refs.maskCanvas = maskCanvas;
+    refs.stage = stage;
+
+    var isMask = state.appMode === 'mask';
+    var isSlider = state.viewMode === 'slider';
+    var isH = state.sliderOrientation === 'horizontal';
+
+    // Mask canvas events (paint or eyedropper)
+    maskCanvas.addEventListener('mousedown', onPointerDown);
+    maskCanvas.addEventListener('mousemove', onPointerMove);
+    maskCanvas.addEventListener('mouseup', onPointerUp);
+    maskCanvas.addEventListener('mouseleave', onPointerUp);
+    maskCanvas.addEventListener('touchstart', onPointerDown, {passive:false});
+    maskCanvas.addEventListener('touchmove', onPointerMove, {passive:false});
+    maskCanvas.addEventListener('touchend', onPointerUp);
+
+    if (isSlider) {
+      // Drag layer (only when not in mask mode — otherwise paint takes priority)
+      if (!isMask) {
+        var dragLayer = ce('div', {cls:'drag-layer ' + (isH?'h':'v')});
+        if (state.sampling) {
+          // Sampling mode: clicks on the layer sample the underlying image
+          dragLayer.style.cursor = 'crosshair';
+          var doSample = function(e) {
+            e.preventDefault();
+            // Convert to image-canvas coordinates
+            var rect = refs.imgCanvas.getBoundingClientRect();
+            var t = e.touches ? e.touches[0] : e;
+            var pos = {
+              x: ((t.clientX - rect.left) / rect.width) * refs.imgCanvas.width,
+              y: ((t.clientY - rect.top) / rect.height) * refs.imgCanvas.height
+            };
+            sampleAt(pos);
+            state.sampling = false;
+            render();
+          };
+          dragLayer.addEventListener('mousedown', doSample);
+          dragLayer.addEventListener('touchstart', doSample, {passive:false});
+        } else {
+          dragLayer.addEventListener('mousedown', onSliderDown);
+          dragLayer.addEventListener('touchstart', onSliderDown, {passive:false});
+        }
+        stage.appendChild(dragLayer);
+      }
+      var divider = ce('div', {cls:'divider ' + (isH?'h':'v')});
+      stage.appendChild(divider);
+      refs.divider = divider;
+
+      var handle = ce('button', {
+        cls:'handle ' + (isH?'h':'v'),
+        html: isH
+          ? svgUse('i-chev-up', 14) + svgUse('i-chev-down', 14)
+          : svgUse('i-chev-left', 14) + svgUse('i-chev-right', 14)
+      });
+      handle.addEventListener('mousedown', onSliderDown);
+      handle.addEventListener('touchstart', onSliderDown, {passive:false});
+      handle.addEventListener('dblclick', function() { state.sliderPos = 50; updateSliderUI(); });
+      if (isH) handle.style.flexDirection = 'column';
+      stage.appendChild(handle);
+      refs.handle = handle;
+
+      // Labels
+      var origLabel = ce('div', {cls:'stage-label original', text:'Original'});
+      stage.appendChild(origLabel);
+      refs.origLabel = origLabel;
+
+      var keimMatch = findKeim(state.color);
+      var treatedClass = isH ? 'bottom-right' : 'top-right';
+      var treatedLabel = ce('div', {cls:'stage-label treated ' + treatedClass});
+      treatedLabel.innerHTML = '<span class="swatch-dot" style="background:' + state.color + '"></span><span class="badge-text">'
+        + (keimMatch ? 'KEIM ' + keimMatch.n : 'Custom') + ' · ' + dilutionLabel() + '</span>';
+      stage.appendChild(treatedLabel);
+      refs.treatedLabel = treatedLabel;
+    }
+
+    // Floating action stack on the canvas
+    var fabStack = ce('div', {cls:'fab-stack'});
+
+    // Eyedropper — pick a colour from the image
+    var fabSample = ce('button', {
+      cls:'fab' + (state.sampling ? ' sampling' : ''),
+      html: svgUse('i-pipette', 18),
+      attr:{title: state.sampling ? 'Tap the wall to sample a colour' : 'Pick colour from image'},
+      on:{click: function() {
+        state.sampling = !state.sampling;
+        if (state.sampling) state.appMode = 'full';
+        render();
+      }}
+    });
+    fabStack.appendChild(fabSample);
+
+    if (isMask) {
+      // In paint mode: show tool selector pills right on the canvas
+      var toolPills = ce('div', {cls:'fab-tools'});
+
+      var brushPill = ce('button', {
+        cls: 'fab-tool' + (state.tool === 'brush' ? ' active' : ''),
+        html: svgUse('i-brush', 16) + '<span>Brush</span>',
+        on:{click: function() { state.tool = 'brush'; render(); }}
+      });
+      var rollerPill = ce('button', {
+        cls: 'fab-tool' + (state.tool === 'roller' ? ' active' : ''),
+        html: svgUse('i-roller', 16) + '<span>Roller</span>',
+        on:{click: function() { state.tool = 'roller'; render(); }}
+      });
+      var eraserPill = ce('button', {
+        cls: 'fab-tool' + (state.tool === 'eraser' ? ' active' : ''),
+        html: svgUse('i-eraser', 16) + '<span>Eraser</span>',
+        on:{click: function() { state.tool = 'eraser'; render(); }}
+      });
+      var clearPill = ce('button', {
+        cls: 'fab-tool fab-tool-clear',
+        html: svgUse('i-trash', 14) + '<span>Clear</span>',
+        on:{click: function() {
+          clearMask();
+          render();
+        }}
+      });
+      var donePill = ce('button', {
+        cls: 'fab-tool fab-tool-done',
+        html: svgUse('i-check', 14) + '<span>Done</span>',
+        on:{click: function() {
+          saveMaskContent();
+          state.appMode = 'full'; render();
+        }}
+      });
+
+      toolPills.appendChild(brushPill);
+      toolPills.appendChild(rollerPill);
+      toolPills.appendChild(eraserPill);
+      toolPills.appendChild(clearPill);
+      toolPills.appendChild(donePill);
+      fabStack.appendChild(toolPills);
+    } else {
+      // Not in paint mode: single button to enter
+      var fabPaint = ce('button', {
+        cls: 'fab',
+        html: svgUse('i-brush', 18),
+        attr:{title: 'Paint walls manually'},
+        on:{click: function() {
+          state.sampling = false;
+          state.appMode = 'mask';
+          render();
+        }}
+      });
+      fabStack.appendChild(fabPaint);
+    }
+    stage.appendChild(fabStack);
+
+    // Paint-mode hint — tells the user the walls are auto-detected and
+    // they can refine. Only shows once per upload (driven by paintHintShown).
+    if (isMask && state.wallMask && !state.paintHintShown) {
+      var paintHint = ce('div', {cls:'paint-hint', text:'Walls auto-detected — paint to add, erase to remove'});
+      stage.appendChild(paintHint);
+      state.paintHintShown = true;
+      // Fade after 4 seconds
+      setTimeout(function() {
+        if (paintHint.parentNode) {
+          paintHint.style.opacity = '0';
+          setTimeout(function() { if (paintHint.parentNode) paintHint.remove(); }, 400);
+        }
+      }, 4000);
+    }
+
+    // Sampling hint banner — shows while sampling mode is active
+    if (state.sampling) {
+      var hint = ce('div', {cls:'sampling-hint', text:'Move over the wall — tap to sample'});
+      stage.appendChild(hint);
+      stage.style.cursor = 'crosshair';
+
+      // Loupe: a circular magnifier that follows the cursor and shows the
+      // exact pixel under the crosshair, helping pinpoint subtle colour
+      // variations on textured substrates.
+      var loupe = ce('div', {cls:'loupe', style:{opacity: '0'}});
+      var loupeCanvas = ce('canvas', {attr:{width: 30, height: 30}});
+      loupe.appendChild(loupeCanvas);
+      loupe.appendChild(ce('div', {cls:'loupe-pixel'}));
+      var loupeHex = ce('div', {cls:'loupe-hex', text:'#'});
+      loupe.appendChild(loupeHex);
+      stage.appendChild(loupe);
+      refs.loupe = loupe;
+      refs.loupeCanvas = loupeCanvas;
+      refs.loupeHex = loupeHex;
+
+      // Track pointer over the stage to update the loupe live
+      var moveLoupe = function(e) {
+        if (!refs.imgCanvas || !refs.loupe) return;
+        var t = e.touches ? e.touches[0] : e;
+        var stageRect = stage.getBoundingClientRect();
+        var imgRect = refs.imgCanvas.getBoundingClientRect();
+        // Pointer position relative to stage (for loupe placement)
+        var relX = t.clientX - stageRect.left;
+        var relY = t.clientY - stageRect.top;
+        // Pointer position in image-canvas pixel space (for sample read)
+        var px = ((t.clientX - imgRect.left) / imgRect.width) * refs.imgCanvas.width;
+        var py = ((t.clientY - imgRect.top) / imgRect.height) * refs.imgCanvas.height;
+        if (px < 0 || py < 0 || px >= refs.imgCanvas.width || py >= refs.imgCanvas.height) {
+          refs.loupe.style.opacity = '0';
+          return;
+        }
+        refs.loupe.style.opacity = '1';
+        refs.loupe.style.left = relX + 'px';
+        refs.loupe.style.top = relY + 'px';
+        // Draw a 30x30 region centred on the cursor into the loupe canvas.
+        // The CSS scales it up to 120px, so each source pixel becomes 4x4 px.
+        var srcSize = 30;
+        var sx = Math.max(0, Math.min(refs.imgCanvas.width - srcSize, Math.floor(px - srcSize / 2)));
+        var sy = Math.max(0, Math.min(refs.imgCanvas.height - srcSize, Math.floor(py - srcSize / 2)));
+        var lctx = refs.loupeCanvas.getContext('2d');
+        lctx.imageSmoothingEnabled = false;
+        lctx.clearRect(0, 0, srcSize, srcSize);
+        lctx.drawImage(refs.imgCanvas, sx, sy, srcSize, srcSize, 0, 0, srcSize, srcSize);
+        // Read the centre pixel for the live hex readout
+        var cx = Math.max(0, Math.min(refs.imgCanvas.width - 1, Math.floor(px)));
+        var cy = Math.max(0, Math.min(refs.imgCanvas.height - 1, Math.floor(py)));
+        var pix = refs.imgCanvas.getContext('2d').getImageData(cx, cy, 1, 1).data;
+        var hex = '#' + [pix[0], pix[1], pix[2]].map(function(v) {
+          var s = v.toString(16); return s.length === 1 ? '0' + s : s;
+        }).join('').toUpperCase();
+        refs.loupeHex.textContent = hex;
+      };
+      var hideLoupe = function() {
+        if (refs.loupe) refs.loupe.style.opacity = '0';
+      };
+      stage.addEventListener('mousemove', moveLoupe);
+      stage.addEventListener('mouseleave', hideLoupe);
+      stage.addEventListener('touchmove', moveLoupe, {passive:false});
+      stage.addEventListener('touchstart', moveLoupe, {passive:false});
+    }
+
+    area.appendChild(stage);
+    return area;
+  }
+
+  function renderBottomBar() {
+    var bar = ce('div', {cls:'bottom-bar'});
+
+    // 1. Controls row (context-sensitive)
+    if (state.appMode === 'mask') {
+      bar.appendChild(renderPaintRow());
+    } else {
+      bar.appendChild(renderStrengthRow());
+    }
+
+    // 2. Colour bar — always visible
+    bar.appendChild(renderColourBar());
+
+    // 3. Sampled colours — when samples exist, shown between colour bar and strip
+    if (state.samples && state.samples.length) {
+      bar.appendChild(renderSamplesPanel());
+    }
+
+    // 4. Colour strip — always visible
+    bar.appendChild(renderColorStrip());
+
+    return bar;
+  }
+
+  function renderStrengthRow() {
+    var row = ce('div', {cls:'controls-row'});
+    row.appendChild(ce('span', {cls:'strength-label', text:'Light'}));
+    var slider = ce('input', {
+      attr:{ type:'range', min:'0', max: String(DILUTIONS.length - 1), step:'1', value: String(state.dilutionIdx) },
+      on:{input: function(e) {
+        state.dilutionIdx = Number(e.target.value);
+        updateLiveAfterDilutionChange();
+        updateMixerVisual();
+      }}
+    });
+    row.appendChild(slider);
+    row.appendChild(ce('span', {cls:'strength-label', text:'Strong'}));
+
+    // ── Mixer visualisation ──────────────────────────────────────────────
+    // Shows two "buckets" side by side at heights proportional to the
+    // current ratio, plus a result swatch on the right showing the mixed
+    // outcome on a mid-grey substrate.
+    var mixer = ce('div', {cls:'mixer'});
+
+    // Bucket SVG template — outline plus a clipPath following the body shape.
+    // The fill rect inside the clipPath grows from the bottom based on ratio.
+    function bucketSVG(id, fillClass) {
+      return ''
+        + '<svg viewBox="0 0 48 56">'
+        + '  <defs>'
+        + '    <clipPath id="' + id + '">'
+        // Body shape: tapered trapezoid with rounded bottom corners
+        + '      <path d="M 8 16 L 14 50 Q 14 52 16 52 L 32 52 Q 34 52 34 50 L 40 16 Z"/>'
+        + '    </clipPath>'
+        + '  </defs>'
+        // Handle — semicircle arc above the rim
+        + '  <path d="M 14 16 Q 14 4 24 4 Q 34 4 34 16" '
+        +       'fill="none" stroke="rgba(220,220,220,0.7)" stroke-width="2" stroke-linecap="round"/>'
+        // Body fill — clipped rect that grows from bottom
+        + '  <rect class="bucket-fill ' + fillClass + '" x="0" y="56" width="48" height="56" '
+        +        'clip-path="url(#' + id + ')"/>'
+        // Body outline
+        + '  <path d="M 8 16 L 14 50 Q 14 52 16 52 L 32 52 Q 34 52 34 50 L 40 16 Z" '
+        +       'fill="none" stroke="rgba(255,255,255,0.65)" stroke-width="1.5" stroke-linejoin="round"/>'
+        // Rim line — small horizontal line at the top of the body
+        + '  <line x1="7" y1="16" x2="41" y2="16" '
+        +       'stroke="rgba(255,255,255,0.65)" stroke-width="1.5" stroke-linecap="round"/>'
+        + '</svg>';
+    }
+
+    var pigCol = ce('div', {cls:'mixer-col'});
+    var pigBucket = ce('div', {cls:'mixer-bucket', attr:{title:'Pigment (Concretal-Lasur)'}});
+    pigBucket.innerHTML = bucketSVG('pig-clip-' + Math.random().toString(36).substr(2,5), 'fill-pigment');
+    pigBucket.appendChild(ce('div', {cls:'mixer-num mixer-num-pig'}));
+    pigCol.appendChild(pigBucket);
+    pigCol.appendChild(ce('div', {cls:'mixer-caption', text:'Pigment'}));
+
+    var fixCol = ce('div', {cls:'mixer-col'});
+    var fixBucket = ce('div', {cls:'mixer-bucket', attr:{title:'Fixative (clear)'}});
+    fixBucket.innerHTML = bucketSVG('fix-clip-' + Math.random().toString(36).substr(2,5), 'fill-fix');
+    fixBucket.appendChild(ce('div', {cls:'mixer-num mixer-num-fix'}));
+    fixCol.appendChild(fixBucket);
+    fixCol.appendChild(ce('div', {cls:'mixer-caption', text:'Fixative'}));
+
+    var arrow = ce('span', {cls:'mixer-arrow', text:'→'});
+
+    var resCol = ce('div', {cls:'mixer-col'});
+    var resultSwatch = ce('div', {cls:'mixer-result', attr:{title:'Result on grey concrete'}});
+    resCol.appendChild(resultSwatch);
+    resCol.appendChild(ce('div', {cls:'mixer-caption', text:'Result'}));
+
+    mixer.appendChild(pigCol);
+    mixer.appendChild(fixCol);
+    mixer.appendChild(arrow);
+    mixer.appendChild(resCol);
+    refs.mixer = {pigBucket: pigBucket, fixBucket: fixBucket, resultSwatch: resultSwatch};
+    row.appendChild(mixer);
+
+    var chip = ce('div', {cls:'ratio-chip', text: dilutionLabel()});
+    refs.ratioChip = chip;
+    row.appendChild(chip);
+
+    [{id:'slider', orient:'vertical',   icon:'i-arrow-lr', title:'Side by side'},
+     {id:'slider', orient:'horizontal', icon:'i-arrow-ud', title:'Top / Bottom'}
+    ].forEach(function(v) {
+      var isActive = state.viewMode === v.id && state.sliderOrientation === v.orient;
+      row.appendChild(ce('button', {
+        cls: 'icon-btn' + (isActive ? ' view-active' : ''),
+        html: svgUse(v.icon, 15),
+        attr:{title: v.title},
+        on:{click: function() {
+          state.viewMode = v.id;
+          state.sliderOrientation = v.orient;
+          state.sliderPos = 50;
+          render();
+        }}
+      }));
+    });
+
+    // Set initial mixer state
+    requestAnimationFrame(updateMixerVisual);
+    return row;
+  }
+
+  // Parse a ratio label like "1:6" or "2:3" into {p, f}
+  function parseRatio(label) {
+    var m = label.split(':');
+    return {p: parseInt(m[0], 10), f: parseInt(m[1], 10)};
+  }
+
+  function updateMixerVisual() {
+    if (!refs.mixer) return;
+    var r  = parseRatio(dilutionLabel());
+    var max = Math.max(r.p, r.f, 1);
+    var pPct = r.p / max;  // 0..1
+    var fPct = r.f / max;  // 0..1
+
+    // SVG fill: bucket interior is from y=16 (rim) to y=52 (bottom curve start).
+    // Fill height = 36 * pct, rendered as rect with y = 52 - fillHeight, height = fillHeight + 4
+    // (extra 4 covers the rounded bottom arc).
+    function setFill(bucket, pct, color, isPattern) {
+      var fillRect = bucket.querySelector('.bucket-fill');
+      if (!fillRect) return;
+      var fillH = 36 * pct;
+      fillRect.setAttribute('y', String(52 - fillH));
+      fillRect.setAttribute('height', String(fillH + 4));
+      if (isPattern) {
+        // diagonal stripes via inline pattern fill
+        fillRect.setAttribute('fill', 'rgba(255,255,255,0.18)');
+      } else {
+        fillRect.setAttribute('fill', color);
+      }
+    }
+
+    setFill(refs.mixer.pigBucket, pPct, state.color, false);
+    setFill(refs.mixer.fixBucket, fPct, '', true);
+
+    refs.mixer.pigBucket.querySelector('.mixer-num-pig').textContent = r.p;
+    refs.mixer.fixBucket.querySelector('.mixer-num-fix').textContent = r.f;
+
+    refs.mixer.resultSwatch.style.background = computeMixedColor(state.color, dilutionValue());
+  }
+
+  // Compute what the colour looks like multiplied onto a mid-grey concrete
+  function computeMixedColor(hex, strengthPct) {
+    var p = hexToRgb(hex);
+    if (!p) return hex;
+    var s = strengthPct / 100;
+    var sub = 175;
+    if (strengthPct >= 100) {
+      return hex; // 1:0 = pure colour
+    }
+    // multiply(lerp(white, paint, s), sub) / 255
+    var fr = 255 + (p.r - 255) * s;
+    var fg = 255 + (p.g - 255) * s;
+    var fb = 255 + (p.b - 255) * s;
+    var rr = Math.round(fr * sub / 255);
+    var rg = Math.round(fg * sub / 255);
+    var rb = Math.round(fb * sub / 255);
+    return 'rgb(' + rr + ',' + rg + ',' + rb + ')';
+  }
+
+  function renderPaintRow() {
+    var row = ce('div', {cls:'controls-row'});
+    var group = ce('div', {cls:'tool-group'});
+    [{id:'brush',icon:'i-brush',title:'Brush'},{id:'roller',icon:'i-roller',title:'Roller'},
+     {id:'eyedropper',icon:'i-pipette',title:'Pick colour from image'},
+     {id:'eraser',icon:'i-eraser',title:'Eraser'}].forEach(function(t) {
+      group.appendChild(ce('button', {
+        cls:'tool' + (state.tool===t.id?' active':''), html: svgUse(t.icon, 15),
+        attr:{title:t.title}, on:{click: function() { state.tool = t.id; render(); }}
+      }));
+    });
+    group.appendChild(ce('button', {
+      cls:'tool', html: svgUse('i-trash', 15), attr:{title:'Clear all paint'},
+      on:{click: clearMask}
+    }));
+    if (state.wallMask) {
+      group.appendChild(ce('button', {
+        cls:'tool', html: svgUse('i-sparkles', 15), attr:{title:'Reset to auto-detected walls'},
+        on:{click: function() { state.seedMask = state.wallMask; paintImage(); }}
+      }));
+    }
+    row.appendChild(group);
+
+    var sliders = ce('div', {cls:'paint-sliders'});
+    var sizeWrap = ce('div', {cls:'paint-slider'});
+    sizeWrap.appendChild(ce('span', {cls:'paint-slider-lbl', text:'Size'}));
+    sizeWrap.appendChild(ce('input', {
+      attr:{type:'range', min:'5', max:'250', value:String(state.brushSize)},
+      on:{input: function(e) { state.brushSize = Number(e.target.value); }}
+    }));
+    sliders.appendChild(sizeWrap);
+    if (state.tool === 'brush') {
+      var opWrap = ce('div', {cls:'paint-slider'});
+      opWrap.appendChild(ce('span', {cls:'paint-slider-lbl', text:'Strength'}));
+      opWrap.appendChild(ce('input', {
+        attr:{type:'range', min:'0', max: String(DILUTIONS.length-1), step:'1', value: String(state.brushOpacityIdx)},
+        on:{input: function(e) {
+          state.brushOpacityIdx = Number(e.target.value);
+          if (refs.opacityChip) refs.opacityChip.textContent = DILUTIONS[state.brushOpacityIdx].label;
+        }}
+      }));
+      var opChip = ce('span', {cls:'paint-slider-chip', text: DILUTIONS[state.brushOpacityIdx].label});
+      refs.opacityChip = opChip;
+      opWrap.appendChild(opChip);
+      sliders.appendChild(opWrap);
+    }
+    row.appendChild(sliders);
+    row.appendChild(ce('button', {
+      cls:'btn btn-primary', html: svgUse('i-check', 14) + '<span class="lbl">Done</span>',
+      on:{click: function() { saveMaskContent(); state.appMode = 'full'; render(); }}
+    }));
+    return row;
+  }
+
+  // ── Colour bar ────────────────────────────────────────────────────────────
+  // Always-visible row: active swatch · KEIM name · ratio · bookmark · Pick btn
+  function renderColourBar() {
+    var bar = ce('div', {cls:'colour-bar'});
+
+    // Swatch: outer has checkerboard ::before, inner fill has the actual colour
+    var swatchWrap = ce('div', {cls:'cb-swatch'});
+    var swatchFill = ce('div', {cls:'cb-swatch-fill', style:{backgroundColor: state.color}});
+    swatchWrap.appendChild(swatchFill);
+    bar.appendChild(swatchWrap);
+    refs.cbSwatch = swatchFill;  // live updates target the fill layer
+
+    // Info: KEIM name + ratio
+    var info = ce('div', {cls:'cb-info'});
+    var match = findKeim(state.color);
+    var nameEl = ce('div', {cls:'cb-name', text: match ? 'KEIM ' + match.n : 'Custom colour'});
+    var subEl = ce('div', {cls:'cb-sub', text: dilutionLabel() + ' dilution · Concretal-Lasur'});
+    info.appendChild(nameEl);
+    info.appendChild(subEl);
+    bar.appendChild(info);
+    refs.cbName = nameEl;
+    refs.cbSub = subEl;
+
+    // Actions: bookmark + pick
+    var actions = ce('div', {cls:'cb-actions'});
+
+    var saved = isSaved(state.color);
+    var saveBtn = ce('button', {
+      cls:'cb-save' + (saved ? ' saved' : ''),
+      html: svgUse(saved ? 'i-bookmark-filled' : 'i-bookmark', 16),
+      attr:{title: saved ? 'Remove from saved' : 'Save this colour'},
+      on:{click: function(e) { e.stopPropagation(); toggleSaved(state.color); }}
+    });
+    actions.appendChild(saveBtn);
+
+    // Pick colour button — always visible, triggers sampling mode
+    var pickBtn = ce('button', {
+      cls:'pick-btn' + (state.sampling ? ' active' : ''),
+      html: svgUse('i-pipette', 15) + '<span class="pick-lbl">Pick colour</span>',
+      attr:{title: state.sampling ? 'Tap the image to sample a colour' : 'Pick a colour from the image'},
+      on:{click: function() {
+        state.sampling = !state.sampling;
+        if (state.sampling) state.appMode = 'full';
+        render();
+      }}
+    });
+    actions.appendChild(pickBtn);
+
+    bar.appendChild(actions);
+    return bar;
+  }
+
+  // ── Samples panel ─────────────────────────────────────────────────────────
+  function renderSamplesPanel() {
+    var panel = ce('div', {cls:'cb-samples'});
+
+    var head = ce('div', {cls:'cb-samples-head'});
+    var title = ce('div', {cls:'cb-samples-title'});
+    title.innerHTML = svgUse('i-pipette', 11) + '<span>Sampled colours</span>';
+    head.appendChild(title);
+    head.appendChild(ce('button', {
+      cls:'cb-samples-clear', text:'Clear',
+      on:{click: function() { state.samples = []; render(); }}
+    }));
+    panel.appendChild(head);
+
+    var scroll = ce('div', {cls:'cb-samples-scroll'});
+    state.samples.forEach(function(sample) {
+      var card = ce('div', {cls:'cb-sample'});
+
+      var row = ce('div', {cls:'cb-sample-row'});
+      // Exact colour chip
+      var exactBtn = ce('button', {
+        cls:'cb-exact-btn' + (state.color.toLowerCase()===sample.hex.toLowerCase()?' active':''),
+        attr:{title:'Use exact: ' + sample.hex.toUpperCase()},
+        on:{click: function() { selectColor(sample.hex); }}
+      });
+      var exactSw = ce('div', {cls:'cb-exact-sw', style:{backgroundColor: sample.hex}});
+      exactBtn.appendChild(exactSw);
+      exactBtn.appendChild(ce('div', {cls:'cb-exact-lbl', text:'Exact'}));
+      row.appendChild(exactBtn);
+
+      row.appendChild(ce('div', {cls:'cb-sep', text:'≈'}));
+
+      // KEIM matches
+      var matches = ce('div', {cls:'cb-matches'});
+      sample.matches.forEach(function(m, i) {
+        var chip = ce('button', {
+          cls:'cb-match' + (i===0?' best':'') + (state.color.toLowerCase()===m.h.toLowerCase()?' active':''),
+          attr:{title:'KEIM ' + m.n},
+          on:{click: function() { selectColor(m.h); }}
+        });
+        chip.appendChild(ce('div', {cls:'cb-match-sw', style:{backgroundColor: m.h}}));
+        chip.appendChild(ce('div', {cls:'cb-match-lbl', text: m.n}));
+        matches.appendChild(chip);
+      });
+      row.appendChild(matches);
+      card.appendChild(row);
+      scroll.appendChild(card);
+    });
+    panel.appendChild(scroll);
+    return panel;
+  }
+
+
+  function renderColorStrip() {
+    var wrap = ce('div');
+
+    // Meta line: colour name + dilution + save toggle
+    var meta = ce('div', {cls:'strip-meta'});
+    var match = findKeim(state.color);
+    var metaText = ce('span');
+    metaText.innerHTML = (match ? 'KEIM ' + match.n : 'Custom colour')
+      + '<span class="pct">· ' + dilutionLabel() + '</span>';
+    meta.appendChild(metaText);
+    var saved = isSaved(state.color);
+    var saveBtn = ce('button', {
+      cls: 'meta-save' + (saved ? ' saved' : ''),
+      html: svgUse(saved ? 'i-bookmark-filled' : 'i-bookmark', 13),
+      attr:{title: saved ? 'Remove from saved' : 'Save this colour'},
+      on:{click: function(e) { e.stopPropagation(); toggleSaved(state.color); }}
+    });
+    meta.appendChild(saveBtn);
+    wrap.appendChild(meta);
+    refs.stripMeta = metaText;
+
+    // Saved colours strip — only shown when the user has saved at least one
+    if (state.saved && state.saved.length > 0) {
+      var savedScroll = ce('div', {cls:'strip-scroll saved-scroll'});
+      var savedStrip = ce('div', {cls:'strip saved-strip'});
+      // Tiny header chip
+      var savedHead = ce('div', {cls:'saved-head'});
+      savedHead.innerHTML = svgUse('i-bookmark-filled', 10) + '<span>Saved</span>';
+      savedStrip.appendChild(savedHead);
+      state.saved.forEach(function(s) {
+        var isActive = state.color.toLowerCase() === s.hex.toLowerCase();
+        var match2 = findKeim(s.hex);
+        var sw = ce('button', {
+          cls: 'swatch saved-swatch' + (isActive ? ' active' : ''),
+          attr:{title: (match2 ? 'KEIM ' + match2.n : s.hex.toUpperCase()) + ' — long-press / right-click to remove'},
+          style:{backgroundColor: blendOverConcrete(s.hex, dilutionValue())},
+          on:{
+            click: function() { selectColor(s.hex); },
+            contextmenu: function(e) { e.preventDefault(); toggleSaved(s.hex); }
+          }
+        });
+        // Long-press to remove on touch devices
+        var pressTimer = null;
+        sw.addEventListener('touchstart', function() {
+          pressTimer = setTimeout(function() { toggleSaved(s.hex); pressTimer = null; }, 600);
+        }, {passive: true});
+        sw.addEventListener('touchend', function() { if (pressTimer) clearTimeout(pressTimer); });
+        sw.addEventListener('touchmove', function() { if (pressTimer) clearTimeout(pressTimer); });
+        savedStrip.appendChild(sw);
+      });
+      savedScroll.appendChild(savedStrip);
+      wrap.appendChild(savedScroll);
+    }
+
+    var scroll = ce('div', {cls:'strip-scroll'});
+    refs.stripScroll = scroll;
+    var strip = ce('div', {cls:'strip'});
+    refs.swatches = [];
+
+    // Build the colour list: curated codes + active KEIM if not already in curated
+    var displayList = STRIP_CODES.map(function(code) {
+      for (var i = 0; i < KEIM.length; i++) if (KEIM[i].n === code) return KEIM[i];
+      return null;
+    }).filter(Boolean);
+
+    if (match) {
+      var alreadyShown = false;
+      for (var i = 0; i < displayList.length; i++) {
+        if (displayList[i].n === match.n) { alreadyShown = true; break; }
+      }
+      if (!alreadyShown) {
+        displayList.unshift(match);
+      }
+    }
+
+    displayList.forEach(function(c) {
+      var isActive = state.color.toLowerCase() === c.h.toLowerCase();
+      var sw = ce('button', {
+        cls: 'swatch' + (isActive ? ' active' : ''),
+        attr:{title:'KEIM '+c.n, 'data-hex':c.h},
+        on:{click: function() { selectColor(c.h); }}
+      });
+      var colDiv = ce('div', {cls:'swatch-colour', style:{backgroundColor: c.h}});
+      sw.appendChild(colDiv);
+      sw.appendChild(ce('div', {cls:'swatch-label', text: c.n}));
+      strip.appendChild(sw);
+      refs.swatches.push({el:sw, hex:c.h, code:c.n});
+    });
+    scroll.appendChild(strip);
+    wrap.appendChild(scroll);
+
+    if (match) {
+      requestAnimationFrame(function() {
+        var activeEl = null;
+        refs.swatches.forEach(function(s) {
+          if (s.hex.toLowerCase() === state.color.toLowerCase()) activeEl = s.el;
+        });
+        if (activeEl && activeEl.scrollIntoView) {
+          try {
+            activeEl.scrollIntoView({behavior:'smooth', block:'nearest', inline:'nearest'});
+          } catch (err) {
+            activeEl.scrollIntoView();
+          }
+        }
+      });
+    }
+
+    return wrap;
+  }
+
+  function renderAdvanced() {
+    var bg = ce('div', {cls:'modal-bg', on:{click: function() { state.showAdvanced=false; render(); }}});
+    var modal = ce('div', {cls:'modal', on:{click:function(e){e.stopPropagation();}}});
+    var head = ce('div', {cls:'modal-head'});
+    head.appendChild(ce('div', {cls:'modal-title', text:'More options'}));
+    head.appendChild(ce('button', {
+      cls:'icon-btn',
+      html: svgUse('i-x', 18),
+      on:{click: function() { state.showAdvanced=false; render(); }}
+    }));
+    modal.appendChild(head);
+
+    var body = ce('div', {cls:'modal-body'});
+
+    // Finish
+    var sec1 = ce('div', {cls:'section'});
+    sec1.appendChild(ce('h4', {text:'Finish'}));
+    var optList = ce('div', {cls:'opt-list'});
+    FINISHES.forEach(function(f) {
+      var opt = ce('button', {
+        cls:'opt' + (state.finish===f.id?' active':''),
+        on:{click: function() { state.finish = f.id; render(); paintImage(); }}
+      });
+      opt.appendChild(ce('div', {cls:'opt-title', text:f.label}));
+      opt.appendChild(ce('div', {cls:'opt-desc', text:f.desc}));
+      optList.appendChild(opt);
+    });
+    sec1.appendChild(optList);
+    body.appendChild(sec1);
+
+    // Compare view
+    var sec2 = ce('div', {cls:'section'});
+    sec2.appendChild(ce('h4', {text:'Compare view'}));
+    var grid3 = ce('div', {cls:'grid-3'});
+    [
+      {id:'overlay', orient:null, label:'Result', icon:'i-image'},
+      {id:'slider', orient:'horizontal', label:'Top / Bottom', icon:'i-arrow-ud'},
+      {id:'slider', orient:'vertical', label:'Side-by-Side', icon:'i-arrow-lr'}
+    ].forEach(function(v) {
+      var active = state.viewMode===v.id && (v.orient==null || state.sliderOrientation===v.orient);
+      var opt = ce('button', {
+        cls:'opt tile-opt' + (active?' active':''),
+        html: svgUse(v.icon, 14) + '<span>' + v.label + '</span>',
+        on:{click: function() {
+          state.viewMode = v.id;
+          if (v.orient) state.sliderOrientation = v.orient;
+          state.sliderPos = 50;
+          render();
+        }}
+      });
+      grid3.appendChild(opt);
+    });
+    sec2.appendChild(grid3);
+    body.appendChild(sec2);
+
+    // Match from image — auto-extracted dominant colours with KEIM matches
+    if (state.dominant && state.dominant.length) {
+      var secMatch = ce('div', {cls:'section'});
+      var matchHead = ce('div', {cls:'match-section-head'});
+      matchHead.innerHTML = svgUse('i-sparkles', 13) + '<h4>Match from image</h4>';
+      secMatch.appendChild(matchHead);
+      secMatch.appendChild(ce('p', {
+        cls:'section-hint',
+        text:'Dominant colours pulled from your image. Tap a KEIM match to use it.'
+      }));
+      var domList = ce('div', {cls:'dom-list'});
+      state.dominant.forEach(function(d) {
+        var matches = nearestKeimList(d.hex, 3);
+        var row = ce('div', {cls:'dom-row'});
+        var sample = ce('div', {cls:'dom-sample', style:{backgroundColor: d.hex}});
+        row.appendChild(sample);
+        var arrow = ce('div', {cls:'dom-arrow', text:'→'});
+        row.appendChild(arrow);
+        var matchesEl = ce('div', {cls:'dom-matches'});
+        matches.forEach(function(m, i) {
+          var chip = ce('button', {
+            cls:'dom-chip' + (i===0?' best':'') + (state.color.toLowerCase()===m.h.toLowerCase()?' active':''),
+            attr:{title: 'KEIM ' + m.n + ' (Δ ' + Math.round(m.d) + ')'},
+            on:{click: function() { selectColor(m.h); state.showAdvanced = false; render(); }}
+          });
+          chip.appendChild(ce('div', {cls:'dom-chip-sw', style:{backgroundColor: m.h}}));
+          chip.appendChild(ce('div', {cls:'dom-chip-lbl', text: m.n}));
+          matchesEl.appendChild(chip);
+        });
+        row.appendChild(matchesEl);
+        domList.appendChild(row);
+      });
+      secMatch.appendChild(domList);
+      body.appendChild(secMatch);
+    }
+
+    // Custom colour
+    var sec3 = ce('div', {cls:'section'});
+    sec3.appendChild(ce('h4', {text:'Custom colour'}));
+    var rowCol = ce('div', {cls:'row'});
+    var colorIn = ce('input', {attr:{type:'color', value: state.color}});
+    colorIn.addEventListener('input', function(e) { selectColor(e.target.value); });
+    var hexIn = ce('input', {attr:{type:'text', value: state.color.toUpperCase(), placeholder:'#HEX'}});
+    hexIn.addEventListener('input', function(e) {
+      var v = e.target.value;
+      if (/^#?[0-9a-f]{6}$/i.test(v)) selectColor(v.charAt(0)==='#'?v:'#'+v);
+    });
+    rowCol.appendChild(colorIn);
+    rowCol.appendChild(hexIn);
+    sec3.appendChild(rowCol);
+    body.appendChild(sec3);
+
+    // All colours
+    var sec4 = ce('div', {cls:'section'});
+    sec4.appendChild(ce('h4', {text:'All colours'}));
+    var sw = ce('div', {cls:'search-wrap'});
+    sw.innerHTML = svgUse('i-search', 14);
+    var searchIn = ce('input', {
+      attr:{type:'search', placeholder:'Search KEIM number...', value: state.paletteSearch}
+    });
+    searchIn.addEventListener('input', function(e) {
+      state.paletteSearch = e.target.value;
+      paletteGrid.innerHTML = '';
+      renderPaletteCells(paletteGrid);
+    });
+    sw.appendChild(searchIn);
+    sec4.appendChild(sw);
+    var paletteGrid = ce('div', {cls:'palette-grid'});
+    renderPaletteCells(paletteGrid);
+    sec4.appendChild(paletteGrid);
+    body.appendChild(sec4);
+
+    modal.appendChild(body);
+    bg.appendChild(modal);
+    return bg;
+  }
+
+  function renderPaletteCells(grid) {
+    var q = state.paletteSearch.trim().toLowerCase();
+    var list = q ? KEIM.filter(function(c) { return c.n.indexOf(q) !== -1; }) : KEIM;
+    list.forEach(function(c) {
+      var cell = ce('button', {
+        cls:'palette-cell' + (state.color.toLowerCase()===c.h.toLowerCase()?' active':''),
+        attr:{title:'KEIM '+c.n},
+        style:{backgroundColor:c.h},
+        on:{click: function() { selectColor(c.h); }}
+      });
+      grid.appendChild(cell);
+    });
+  }
+
+  // ---------------- ACTIONS ----------------
+  function loadFile(file) {
+    if (!file || !file.type || file.type.indexOf('image/')!==0) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = new Image();
+      img.onload = function() {
+        var maxDim = 1400;
+        var w = img.width, h = img.height;
+        if (w > maxDim) { h = h*(maxDim/w); w = maxDim; }
+        if (h > maxDim) { w = w*(maxDim/h); h = maxDim; }
+        state.image = img;
+        state.imageW = Math.round(w);
+        state.imageH = Math.round(h);
+        state.sliderPos = 50;
+        // Pre-compute on a working canvas (used for both dominant + wall mask)
+        var tmp = document.createElement('canvas');
+        tmp.width = state.imageW; tmp.height = state.imageH;
+        tmp.getContext('2d').drawImage(img, 0, 0, state.imageW, state.imageH);
+        state.dominant = extractDominantColors(tmp, 5);
+        // Clear any previous brush strokes — new image = fresh start
+        _hasPersistentContent = false;
+        _persistentMask.width = 0;
+        // Detect walls — runs in 50-150ms typically
+        try {
+          state.wallMask = detectWallMask(tmp);
+        } catch (err) {
+          state.wallMask = null;
+        }
+        // For uploaded photos, default to paint mode with the auto-detected
+        // wall area pre-painted as the starting point. Architects can then
+        // refine with the brush (add areas) or eraser (remove bleed onto
+        // furniture, bedding, etc). This is much more reliable for cluttered
+        // interiors than relying on the heuristic alone.
+        state.appMode = 'mask';
+        state.wallOnly = false;  // mask-mode handles the masking, not destination-in
+        state.seedMask = state.wallMask;  // tells render to seed the canvas
+        render();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function loadSubstrate(type) {
+    var w = 1500, h = 1000;
+    var c = generateSubstrate(type, w, h);
+    var img = new Image();
+    img.onload = function() {
+      state.image = img;
+      state.imageW = w;
+      state.imageH = h;
+      state.sliderPos = 50;
+      state.dominant = extractDominantColors(c, 5);
+      // Substrates are pre-rendered walls so no masking needed
+      state.wallMask = null;
+      state.wallOnly = false;
+      render();
+    };
+    img.src = c.toDataURL('image/png');
+  }
+
+  // Saved colours helpers
+  function isSaved(hex) {
+    if (!hex) return false;
+    var h = hex.toLowerCase();
+    for (var i = 0; i < state.saved.length; i++) {
+      if (state.saved[i].hex.toLowerCase() === h) return true;
+    }
+    return false;
+  }
+  function toggleSaved(hex) {
+    var h = hex.toLowerCase();
+    var existed = isSaved(h);
+    if (existed) {
+      state.saved = state.saved.filter(function(s) { return s.hex.toLowerCase() !== h; });
+    } else {
+      // Most-recently-saved first; cap at 30
+      var match = findKeim(h);
+      state.saved.unshift({hex: h, label: match ? 'KEIM ' + match.n : null});
+      if (state.saved.length > 30) state.saved = state.saved.slice(0, 30);
+    }
+    persistSaved();
+    render();
+  }
+
+  function selectColor(hex) {
+    state.color = hex.toLowerCase();
+    paintImage();
+
+    // Check if this colour is a KEIM colour that's NOT currently in the strip.
+    // If so, do a full re-render so it gets injected (and auto-scrolled to).
+    var match = findKeim(state.color);
+    if (match && refs.swatches) {
+      var inStrip = false;
+      for (var i = 0; i < refs.swatches.length; i++) {
+        if (refs.swatches[i].hex.toLowerCase() === state.color) { inStrip = true; break; }
+      }
+      if (!inStrip) { render(); return; }
+    }
+
+    // Update the colour bar live
+    if (refs.cbSwatch) refs.cbSwatch.style.backgroundColor = state.color;
+    if (refs.cbName) refs.cbName.textContent = match ? 'KEIM ' + match.n : 'Custom colour';
+    if (refs.cbSub) refs.cbSub.textContent = dilutionLabel() + ' dilution · Concretal-Lasur';
+
+    // Update strip swatches live
+    if (refs.swatches) {
+      var activeSwatch = null;
+      refs.swatches.forEach(function(s) {
+        // swatches show pure KEIM hex, no re-tint needed
+        var isActive = s.hex.toLowerCase() === state.color;
+        s.el.classList.toggle('active', isActive);
+        if (isActive) activeSwatch = s.el;
+      });
+      if (activeSwatch && activeSwatch.scrollIntoView) {
+        try { activeSwatch.scrollIntoView({behavior:'smooth', block:'nearest', inline:'nearest'}); }
+        catch (err) { activeSwatch.scrollIntoView(); }
+      }
+    }
+    // Update strip meta label
+    if (refs.stripMeta) {
+      refs.stripMeta.innerHTML = (match ? 'KEIM ' + match.n : 'Custom colour')
+        + '<span class="pct">· ' + dilutionLabel() + '</span>';
+    }
+    if (refs.treatedLabel) {
+      refs.treatedLabel.innerHTML = '<span class="swatch-dot" style="background:' + state.color + '"></span><span class="badge-text">'
+        + (match ? 'KEIM ' + match.n : 'Custom') + ' · ' + dilutionLabel() + '</span>';
+    }
+  }
+
+  function updateLiveAfterDilutionChange() {
+    if (refs.ratioChip) refs.ratioChip.textContent = dilutionLabel();
+    if (refs.cbSub) refs.cbSub.textContent = dilutionLabel() + ' dilution · Concretal-Lasur';
+    if (refs.maskCanvas && state.appMode === 'full') {
+      var mctx = refs.maskCanvas.getContext('2d');
+      mctx.globalCompositeOperation = 'source-over';
+      mctx.clearRect(0, 0, refs.maskCanvas.width, refs.maskCanvas.height);
+      mctx.fillStyle = dilutionValue() >= 100 ? state.color : lasurFillColor(state.color, dilutionValue());
+      mctx.fillRect(0, 0, refs.maskCanvas.width, refs.maskCanvas.height);
+      refs.maskCanvas.style.opacity = '1';
+      refs.maskCanvas.style.mixBlendMode = dilutionValue() >= 100 ? 'normal' : 'multiply';
+      applySliderClip();
+    }
+    if (refs.stripMeta) {
+      var match = findKeim(state.color);
+      refs.stripMeta.innerHTML = (match ? 'KEIM ' + match.n : 'Custom colour')
+        + '<span class="pct">· ' + dilutionLabel() + '</span>';
+    }
+    if (refs.treatedLabel) {
+      var m2 = findKeim(state.color);
+      refs.treatedLabel.innerHTML = '<span class="swatch-dot" style="background:' + state.color + '"></span><span class="badge-text">'
+        + (m2 ? 'KEIM ' + m2.n : 'Custom') + ' · ' + dilutionLabel() + '</span>';
+    }
+    updateMixerVisual();
+  }
+
+  function paintImage() {
+    if (!state.image || !refs.imgCanvas || !refs.maskCanvas) return;
+    var ic = refs.imgCanvas, mc = refs.maskCanvas;
+    // IMPORTANT: only set .width/.height when dimensions have actually changed.
+    // Assigning to canvas.width/height always clears the canvas — even if the
+    // value is the same — so doing it on every render wipes brush/roller strokes.
+    if (ic.width !== state.imageW || ic.height !== state.imageH) {
+      ic.width = state.imageW;
+      ic.height = state.imageH;
+    }
+    if (mc.width !== state.imageW || mc.height !== state.imageH) {
+      mc.width = state.imageW;
+      mc.height = state.imageH;
+    }
+    var ictx = ic.getContext('2d');
+    ictx.drawImage(state.image, 0, 0, state.imageW, state.imageH);
+
+    var mctx = mc.getContext('2d');
+    if (state.appMode === 'full') {
+      // handled below in blend section
+    } else if (state.seedMask) {
+      // First time entering mask mode after an image upload — seed the
+      // brush canvas with the auto-detected wall area as a starting point.
+      mctx.globalCompositeOperation = 'source-over';
+      mctx.clearRect(0, 0, mc.width, mc.height);
+      mctx.drawImage(state.seedMask, 0, 0, mc.width, mc.height);
+      mctx.globalCompositeOperation = 'source-in';
+      mctx.fillStyle = state.color;
+      mctx.fillRect(0, 0, mc.width, mc.height);
+      mctx.globalCompositeOperation = 'source-over';
+      state.seedMask = null;
+    } else if (_hasPersistentContent) {
+      // Persistent strokes exist — restoreMaskContent() will put them back
+      // after this call returns. Don't touch the canvas here.
+      mctx.clearRect(0, 0, mc.width, mc.height);
+    } else {
+      // Mask mode with no prior strokes — canvas starts empty, user paints
+      mctx.clearRect(0, 0, mc.width, mc.height);
+    }
+    // Apply CSS opacity & blend mode.
+    // In full mode: CSS opacity controls the overall dilution since we fill
+    // the entire canvas with one flat colour.
+    // In mask mode: opacity is baked into each stroke's globalAlpha so we
+    // never override it here — doing so would uniformly dim ALL colours to
+    // the same level, preventing multiple colours at different dilutions.
+    if (state.appMode === 'full') {
+      mctx.globalCompositeOperation = 'source-over';
+      mctx.clearRect(0, 0, mc.width, mc.height);
+      if (_hasPersistentContent
+          && _persistentMask.width === mc.width
+          && _persistentMask.height === mc.height) {
+        // User has painted strokes — show those instead of flat fill
+        mctx.drawImage(_persistentMask, 0, 0);
+        mc.style.opacity = '1';
+        mc.style.mixBlendMode = 'source-over'; // strokes already have colour baked in
+        // Use multiply so the baked strokes interact with substrate naturally
+        mc.style.mixBlendMode = 'multiply';
+      } else {
+        // No strokes — flat fill using lasur colour model
+        mctx.fillStyle = dilutionValue() >= 100 ? state.color : lasurFillColor(state.color, dilutionValue());
+        mctx.fillRect(0, 0, mc.width, mc.height);
+        if (state.wallOnly && state.wallMask) {
+          mctx.globalCompositeOperation = 'destination-in';
+          mctx.drawImage(state.wallMask, 0, 0, mc.width, mc.height);
+          mctx.globalCompositeOperation = 'source-over';
+        }
+        mc.style.opacity = '1';
+        mc.style.mixBlendMode = dilutionValue() >= 100 ? 'normal' : 'multiply';
+      }
+    } else {
+      mc.style.opacity = '1';
+      // In mask mode strokes have dilution baked in. At 1:0 use normal so
+      // full-strength strokes render solid with no substrate showing through.
+      mc.style.mixBlendMode = dilutionValue() >= 100 ? 'normal' : 'multiply';
+    }
+    applySliderClip();
+  }
+
+  function clearMask() {
+    if (!refs.maskCanvas) return;
+    var ctx = refs.maskCanvas.getContext('2d');
+    ctx.clearRect(0, 0, refs.maskCanvas.width, refs.maskCanvas.height);
+    _hasPersistentContent = false;
+  }
+
+  function applySliderClip() {
+    if (!refs.maskCanvas) return;
+    if (state.viewMode === 'slider') {
+      refs.maskCanvas.style.clipPath = state.sliderOrientation === 'horizontal'
+        ? 'inset(' + state.sliderPos + '% 0 0 0)'
+        : 'inset(0 0 0 ' + state.sliderPos + '%)';
+    } else {
+      refs.maskCanvas.style.clipPath = 'none';
+    }
+  }
+
+  // Correctly size the stage so the image never stretches.
+  // Object-fit: contain logic — picks the largest size that fits within the
+  // vis-area in both dimensions while maintaining the exact image aspect ratio.
+  function updateStageSize() {
+    if (!refs.stage || !state.image) return;
+    var vis = refs.stage.closest('.vis-area');
+    if (!vis) return;
+    var pad = 24; // 12px padding each side
+    var availW = vis.clientWidth - pad;
+    var availH = vis.clientHeight - pad;
+    if (availW <= 0 || availH <= 0) return;
+    var ar = state.imageW / state.imageH;
+    var stageW, stageH;
+    if (availW / availH > ar) {
+      // Container is wider relative to content — height is the binding constraint
+      stageH = availH;
+      stageW = Math.round(stageH * ar);
+    } else {
+      // Container is taller relative to content — width is the binding constraint
+      stageW = availW;
+      stageH = Math.round(stageW / ar);
+    }
+    refs.stage.style.width = stageW + 'px';
+    refs.stage.style.height = stageH + 'px';
+  }
+
+  function updateSliderUI() {
+    if (!refs.divider || !refs.handle) return;
+    var isH = state.sliderOrientation === 'horizontal';
+    if (isH) {
+      refs.divider.style.top = state.sliderPos + '%';
+      refs.handle.style.left = '50%';
+      refs.handle.style.top = state.sliderPos + '%';
+    } else {
+      refs.divider.style.left = state.sliderPos + '%';
+      refs.handle.style.left = state.sliderPos + '%';
+      refs.handle.style.top = '50%';
+    }
+    if (refs.origLabel) refs.origLabel.style.opacity = state.sliderPos > 8 ? 1 : 0;
+    if (refs.treatedLabel) refs.treatedLabel.style.opacity = state.sliderPos < 92 ? 1 : 0;
+    applySliderClip();
+  }
+
+  function downloadResult() {
+    if (!state.image) {
+      alert('No image loaded — pick a wall first.');
+      return;
+    }
+    try {
+      var out = document.createElement('canvas');
+      out.width = state.imageW;
+      out.height = state.imageH;
+      var ctx = out.getContext('2d');
+
+      // Step 1: draw the substrate image
+      ctx.drawImage(state.image, 0, 0, state.imageW, state.imageH);
+
+      // Step 2: composite the colour layer using the same logic as on screen
+      var dv = dilutionValue();
+
+      if (_hasPersistentContent
+          && _persistentMask.width === state.imageW
+          && _persistentMask.height === state.imageH) {
+        // User has painted brush/roller strokes — composite the persistent
+        // mask with multiply blend so substrate texture shows through
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.drawImage(_persistentMask, 0, 0);
+      } else {
+        // Flat fill — use lasurFillColor + multiply (or normal at 1:0)
+        var fillCanvas = document.createElement('canvas');
+        fillCanvas.width = state.imageW;
+        fillCanvas.height = state.imageH;
+        var fctx = fillCanvas.getContext('2d');
+        fctx.fillStyle = dv >= 100 ? state.color : lasurFillColor(state.color, dv);
+        fctx.fillRect(0, 0, state.imageW, state.imageH);
+
+        if (state.wallOnly && state.wallMask) {
+          fctx.globalCompositeOperation = 'destination-in';
+          fctx.drawImage(state.wallMask, 0, 0, state.imageW, state.imageH);
+        }
+
+        ctx.globalCompositeOperation = dv >= 100 ? 'source-over' : 'multiply';
+        ctx.drawImage(fillCanvas, 0, 0);
+      }
+
+      ctx.globalCompositeOperation = 'source-over';
+
+      // Step 3: build filename and trigger download
+      var match = findKeim(state.color);
+      var tag = match ? 'keim-' + match.n : 'keim-custom-' + state.color.replace('#','');
+      var filename = tag + '-' + dilutionLabel().replace(':','x') + '.png';
+
+      out.toBlob(function(blob) {
+        if (!blob) { alert('Download failed — please try again.'); return; }
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.download = filename;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        // Free the blob URL after a tick
+        setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+      }, 'image/png');
+    } catch (err) {
+      console.error('Save failed:', err);
+      alert('Could not save the image. The wall may be too large for your browser to export.');
+    }
+  }
+
+  function resetToLanding() {
+    state.image = null;
+    state.imageW = 0; state.imageH = 0;
+    state.appMode = 'full';
+    state.sliderPos = 50;
+    state.dominant = [];
+    state.samples = [];
+    state.sampling = false;
+    state.wallMask = null;
+    state.wallOnly = false;
+    state.seedMask = null;
+    state.paintHintShown = false;
+    _hasPersistentContent = false;
+    _persistentMask.width = 0;
+    refs = {};
+    render();
+  }
+
+  // ---------------- POINTER (paint) ----------------
+  function getCanvasPos(e) {
+    var canvas = refs.maskCanvas;
+    var rect = canvas.getBoundingClientRect();
+    var t = e.touches ? e.touches[0] : e;
+    return {
+      x: ((t.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((t.clientY - rect.top) / rect.height) * canvas.height
+    };
+  }
+  function onPointerDown(e) {
+    // Standalone sampling mode (FAB-driven) — works regardless of paint mode
+    if (state.sampling && refs.maskCanvas) {
+      e.preventDefault();
+      sampleAt(getCanvasPos(e));
+      state.sampling = false;
+      render();
+      return;
+    }
+    if (state.appMode !== 'mask' || !refs.maskCanvas) return;
+    e.preventDefault();
+    var pos = getCanvasPos(e);
+    if (state.tool === 'eyedropper') {
+      sampleAt(pos);
+      render();
+      return;
+    }
+    isDrawing = true;
+    lastPos = pos;
+    drawSegment(pos, pos);
+  }
+
+  // Sample the underlying image at the given canvas-space position
+  function sampleAt(pos) {
+    if (!refs.imgCanvas) return;
+    var x = Math.max(0, Math.min(refs.imgCanvas.width - 1, Math.floor(pos.x)));
+    var y = Math.max(0, Math.min(refs.imgCanvas.height - 1, Math.floor(pos.y)));
+    var px = refs.imgCanvas.getContext('2d').getImageData(x, y, 1, 1).data;
+    var sampledHex = '#' + [px[0], px[1], px[2]].map(function(v) {
+      var s = v.toString(16); return s.length === 1 ? '0' + s : s;
+    }).join('');
+    var matches = nearestKeimList(sampledHex, 4);
+    // Push to history — newest first, deduped
+    state.samples = state.samples.filter(function(s) { return s.hex !== sampledHex; });
+    state.samples.unshift({hex: sampledHex, matches: matches});
+    if (state.samples.length > 6) state.samples = state.samples.slice(0, 6);
+    state.tool = 'brush';
+    // Auto-apply the closest KEIM match immediately
+    if (matches && matches.length > 0) {
+      selectColor(matches[0].h);
+    }
+  }
+  function onPointerMove(e) {
+    if (!isDrawing || state.appMode !== 'mask') return;
+    e.preventDefault();
+    var pos = getCanvasPos(e);
+    drawSegment(lastPos, pos);
+    lastPos = pos;
+  }
+  function onPointerUp() { isDrawing = false; lastPos = null; }
+  function drawSegment(a, b) {
+    if (!refs.maskCanvas) return;
+    var ctx = refs.maskCanvas.getContext('2d');
+    var rect = refs.maskCanvas.getBoundingClientRect();
+    var scale = refs.maskCanvas.width / rect.width;
+    ctx.save();
+
+    if (state.tool === 'eraser') {
+      // Eraser — round, removes paint
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.strokeStyle = 'rgba(0,0,0,1)';
+      ctx.lineWidth = state.brushSize * scale;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+
+    } else if (state.tool === 'roller') {
+      // Roller — flat square cap, even coverage, hard flat edges.
+      // Distinctly different from brush: no round ends, wider, uniform coverage.
+      var rw = state.brushSize * scale * 2.0;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = Math.min(1, 0.92 * (dilutionValue() / 100));
+      ctx.strokeStyle = state.color;
+      ctx.lineWidth = rw;
+      ctx.lineCap = 'butt';
+      ctx.lineJoin = 'miter';
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+
+    } else {
+      // Brush — round cap with visible bristle marks.
+      // A real brush leaves parallel streaks from individual bristles.
+      // We simulate this by drawing the main stroke plus several thin
+      // offset strokes at reduced opacity, spread perpendicular to direction.
+      ctx.globalCompositeOperation = 'source-over';
+      var brushAlpha = Math.max(0.05, DILUTIONS[state.brushOpacityIdx].value / 100)
+                     * (dilutionValue() / 100);  // dilution baked in per stroke
+      var brushW = state.brushSize * scale;
+
+      // Compute perpendicular direction for bristle spread
+      var dx = b.x - a.x, dy = b.y - a.y;
+      var len = Math.sqrt(dx*dx + dy*dy) || 1;
+      var nx = -dy/len, ny = dx/len;  // perpendicular unit vector
+
+      // Number of bristles scales with brush size — bigger brush = more bristles
+      var bristleCount = Math.max(4, Math.min(14, Math.floor(brushW / (scale * 3))));
+      var spread = brushW * 0.5;
+
+      for (var b2 = 0; b2 < bristleCount; b2++) {
+        // Space bristles evenly across the brush width with slight randomness
+        var t = (b2 / (bristleCount - 1)) - 0.5;  // -0.5 to +0.5
+        var offset = t * spread + (Math.random() - 0.5) * scale * 1.5;
+        // Outer bristles are thinner and more transparent (pressure falls off)
+        var edgeFade = 1 - Math.abs(t) * 0.65;
+        var bristleAlpha = brushAlpha * edgeFade * (0.7 + Math.random() * 0.3);
+        var bristleW = Math.max(scale * 0.8, brushW / bristleCount * (0.8 + Math.random() * 0.4));
+
+        ctx.globalAlpha = Math.min(1, bristleAlpha);
+        ctx.strokeStyle = state.color;
+        ctx.lineWidth = bristleW;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(a.x + nx*offset, a.y + ny*offset);
+        ctx.lineTo(b.x + nx*offset, b.y + ny*offset);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // ---------------- POINTER (slider) ----------------
+  function onSliderDown(e) {
+    if (e.cancelable) e.preventDefault();
+    isDraggingSlider = true;
+    moveSlider(e);
+    window.addEventListener('mousemove', moveSlider);
+    window.addEventListener('touchmove', moveSlider, {passive:false});
+    window.addEventListener('mouseup', endSlider);
+    window.addEventListener('touchend', endSlider);
+  }
+  function moveSlider(e) {
+    if (!isDraggingSlider || !refs.stage) return;
+    if (e.cancelable) e.preventDefault();
+    var rect = refs.stage.getBoundingClientRect();
+    var t = e.touches ? e.touches[0] : e;
+    var isH = state.sliderOrientation === 'horizontal';
+    var c = isH ? t.clientY : t.clientX;
+    var start = isH ? rect.top : rect.left;
+    var size = isH ? rect.height : rect.width;
+    var pct = Math.max(0, Math.min(100, ((c - start) / size) * 100));
+    state.sliderPos = pct;
+    updateSliderUI();
+  }
+  function endSlider() {
+    isDraggingSlider = false;
+    window.removeEventListener('mousemove', moveSlider);
+    window.removeEventListener('touchmove', moveSlider);
+    window.removeEventListener('mouseup', endSlider);
+    window.removeEventListener('touchend', endSlider);
+  }
+
+  // ---------------- BOOT ----------------
+  document.addEventListener('DOMContentLoaded', render);
+  if (document.readyState !== 'loading') render();
+
+  // Re-size the stage when the window is resized (no full re-render needed)
+  var _resizeTimer = null;
+  window.addEventListener('resize', function() {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(function() {
+      updateStageSize();
+      if (state.viewMode === 'slider') updateSliderUI();
+    }, 60);
+  });
+})();
+</script>
+</body>
+</html>
