@@ -961,6 +961,16 @@
 
   /* Compatibility hint when iframed */
   .ratio-stage { /* dimensions set by updateStageSize() after layout */ }
+
+  /* ── "Mix this" link to the KEIM mixing calculator ── */
+  .mix-link { display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 14px 0 6px; border-radius:999px;
+    background:#d51f24; color:#fff; font-weight:800; font-size:14px; text-decoration:none; white-space:nowrap;
+    box-shadow:0 4px 14px rgba(213,31,36,0.35); transition:transform .15s, background .15s; flex-shrink:0; }
+  .mix-link:hover { background:#b3151a; } .mix-link:active { transform:scale(.96); }
+  .mix-dot { width:26px; height:26px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 2px rgba(213,31,36,.5); position:relative; flex-shrink:0; }
+  .mix-dot::after { content:''; position:absolute; inset:-7px; border-radius:50%; border:2px solid rgba(255,255,255,.7); animation:mixPulse 2s ease-out infinite; }
+  @keyframes mixPulse { 0%{transform:scale(.8);opacity:.9} 100%{transform:scale(1.35);opacity:0} }
+  @media (prefers-reduced-motion: reduce) { .mix-dot::after { animation:none; opacity:0; } }
 </style>
 </head>
 <body>
@@ -2358,6 +2368,35 @@
     catch (e) { /* no-op */ }
   }
   // Convenience getters
+  // Incoming link from the mixing calculator: ?ratio=P:D&colour=hex
+  (function applyUrlParams() {
+    try {
+      var q = new URLSearchParams(location.search);
+      var r = (q.get('ratio') || '').split(':');
+      var p = parseFloat(r[0]), d = parseFloat(r[1]);
+      if (p > 0 && d >= 0) {
+        var pct = p / (p + d) * 100, best = 0;
+        DILUTIONS.forEach(function (x, i) { if (Math.abs(x.value - pct) < Math.abs(DILUTIONS[best].value - pct)) best = i; });
+        state.dilutionIdx = best;
+      }
+      var c = (q.get('colour') || q.get('color') || '').replace('#', '');
+      if (/^[0-9a-fA-F]{6}$/.test(c)) state.color = '#' + c.toLowerCase();
+    } catch (e) {}
+  })();
+
+  var MIX_URL = 'https://hoodad-lab.github.io/lasur-mix/';
+  function mixHref() {
+    var m = findKeim(state.color);
+    var q = 'ratio=' + encodeURIComponent(dilutionLabel()) + '&colour=' + state.color.replace('#', '');
+    if (m) q += '&name=' + encodeURIComponent('KEIM ' + m.n);
+    return MIX_URL + '?' + q;
+  }
+  function updateMixLink() {
+    if (!refs.mixLink) return;
+    refs.mixLink.href = mixHref();
+    refs.mixDot.style.background = computeMixedColor(state.color, dilutionValue());
+  }
+
   function dilutionValue() { return DILUTIONS[state.dilutionIdx].value; }
   function dilutionLabel() { return DILUTIONS[state.dilutionIdx].label; }
 
@@ -3028,6 +3067,15 @@
     });
     actions.appendChild(pickBtn);
 
+    // "Mix this" — opens the mixing calculator with this ratio (and colour) ready
+    var mixDot = ce('span', {cls:'mix-dot'});
+    var mixLink = ce('a', {cls:'mix-link', attr:{href: mixHref(), target:'_blank', rel:'noopener', title:'Open the mixing calculator with this ratio'}});
+    mixLink.appendChild(mixDot);
+    mixLink.appendChild(ce('span', {text:'Mix this'}));
+    actions.appendChild(mixLink);
+    refs.mixLink = mixLink; refs.mixDot = mixDot;
+    updateMixLink();
+
     bar.appendChild(actions);
     return bar;
   }
@@ -3446,6 +3494,7 @@
     if (refs.cbSwatch) refs.cbSwatch.style.backgroundColor = state.color;
     if (refs.cbName) refs.cbName.textContent = match ? 'KEIM ' + match.n : 'Custom colour';
     if (refs.cbSub) refs.cbSub.textContent = dilutionLabel() + ' dilution · Concretal-Lasur';
+    updateMixLink();
 
     // Update strip swatches live
     if (refs.swatches) {
@@ -3475,6 +3524,7 @@
   function updateLiveAfterDilutionChange() {
     if (refs.ratioChip) refs.ratioChip.textContent = dilutionLabel();
     if (refs.cbSub) refs.cbSub.textContent = dilutionLabel() + ' dilution · Concretal-Lasur';
+    updateMixLink();
     if (refs.maskCanvas && state.appMode === 'full') {
       var mctx = refs.maskCanvas.getContext('2d');
       mctx.globalCompositeOperation = 'source-over';
